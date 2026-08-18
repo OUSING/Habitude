@@ -6,7 +6,7 @@ import { buildCsv, parseCsvObjects } from "../utils/csv";
 import { paletteDefault } from "../utils/palette";
 import { defaultIcon } from "../utils/icons";
 import { scheduleHabitReminder } from "./notifications";
-import type { Habit, HabitLog, Weekday } from "../types/habit";
+import type { Frequency, FrequencyUnit, Habit, HabitLog, Weekday } from "../types/habit";
 import type { Todo } from "../types/todo";
 
 /**
@@ -27,6 +27,9 @@ const HABITS_HEADER = [
   "icon",
   "frequency_type",
   "frequency_days",
+  "frequency_interval",
+  "frequency_unit",
+  "frequency_anchor",
   "reminder_time",
   "unit",
   "target",
@@ -41,7 +44,9 @@ const TODOS_HEADER = ["text", "icon", "done", "created_at", "completed_at"];
 /* -------------------------------- Export -------------------------------- */
 
 function frequencyDaysToCsv(habit: Habit): string {
-  return habit.frequency.type === "weekly" ? habit.frequency.days.join("|") : "";
+  if (habit.frequency.type === "weekly") return habit.frequency.days.join("|");
+  if (habit.frequency.type === "custom" && habit.frequency.weekdays) return habit.frequency.weekdays.join("|");
+  return "";
 }
 
 async function buildHabitsCsv(): Promise<string> {
@@ -58,6 +63,9 @@ async function buildHabitsCsv(): Promise<string> {
       h.icon,
       h.frequency.type,
       frequencyDaysToCsv(h),
+      h.frequency.type === "custom" ? h.frequency.interval : "",
+      h.frequency.type === "custom" ? h.frequency.unit : "",
+      h.frequency.type === "custom" ? h.frequency.anchor : "",
       h.reminderTime ?? "",
       h.measurement?.unit ?? "",
       h.measurement?.target ?? "",
@@ -74,6 +82,9 @@ async function buildHabitsCsv(): Promise<string> {
     rows.push([
       "log",
       habit.name,
+      "",
+      "",
+      "",
       "",
       "",
       "",
@@ -152,6 +163,28 @@ function parseFrequencyDays(raw: string): Weekday[] {
     .filter((n) => n >= 0 && n <= 6);
 }
 
+const CUSTOM_UNITS = new Set(["day", "week", "month", "year"]);
+
+function parseFrequency(row: Record<string, string>): Frequency {
+  if (row.frequency_type === "custom") {
+    const interval = Math.max(1, Number(row.frequency_interval) || 1);
+    const unit: FrequencyUnit = CUSTOM_UNITS.has(row.frequency_unit) ? (row.frequency_unit as FrequencyUnit) : "week";
+    const weekdays = parseFrequencyDays(row.frequency_days);
+    const anchor = row.frequency_anchor?.trim() || new Date().toISOString().slice(0, 10);
+    return {
+      type: "custom",
+      interval,
+      unit,
+      anchor,
+      ...(unit === "week" ? { weekdays: weekdays.length > 0 ? weekdays : undefined } : {})
+    };
+  }
+  if (row.frequency_type === "weekly") {
+    return { type: "weekly", days: parseFrequencyDays(row.frequency_days) };
+  }
+  return { type: "daily" };
+}
+
 export interface CsvImportResult {
   kind: "habits" | "todos";
   summary: string;
@@ -180,10 +213,7 @@ async function importHabitsCsv(text: string): Promise<CsvImportResult> {
       name,
       color: row.color || paletteDefault(),
       icon: row.icon || defaultIcon(),
-      frequency:
-        row.frequency_type === "weekly"
-          ? { type: "weekly", days: parseFrequencyDays(row.frequency_days) }
-          : { type: "daily" },
+      frequency: parseFrequency(row),
       reminderTime: row.reminder_time || undefined,
       measurement: row.unit && row.target ? { unit: row.unit, target: Number(row.target) } : undefined,
       archived: row.archived === "1"

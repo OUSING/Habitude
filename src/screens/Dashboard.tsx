@@ -98,7 +98,7 @@ export function Dashboard({ selectedDate, onSelectDate, onOpenHabit, onAddHabit,
             onChange={(e) => setQuickAddName(e.target.value)}
             placeholder="Add a habit"
             maxLength={40}
-            className="dashboard-quick-add-input tap-target min-w-0 flex-1 bg-transparent font-sans text-[16px] text-ink outline-none"
+            className="dashboard-quick-add-input tap-target min-w-0 flex-1 bg-transparent text-[16px] text-ink outline-none"
           />
           <button
             type="submit"

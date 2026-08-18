@@ -158,8 +158,7 @@ export function HabitCard({ habit, date, onEdit }: Props) {
       onSwipeRight={{
         onTrigger: handleDelete,
         icon: <Trash2 size={17} className="text-white" />,
-        confirmMessage: `Delete "${habit.name}"?`,
-        requireConfirm: true
+        requireConfirm: false
       }}
     >
       <div
@@ -169,16 +168,6 @@ export function HabitCard({ habit, date, onEdit }: Props) {
           borderColor: `${habit.color}14`
         }}
       >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); void handleDelete(); }}
-          onPointerDown={(e) => e.stopPropagation()}
-          aria-label={`Delete ${habit.name}`}
-          title={`Delete ${habit.name}`}
-          className="tap-target flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted/60 transition-colors hover:text-red-500 active:scale-90"
-        >
-          <Trash2 size={13} />
-        </button>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <div
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"

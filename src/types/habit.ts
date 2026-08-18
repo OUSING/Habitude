@@ -3,9 +3,31 @@
  */
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
+export type FrequencyUnit = "day" | "week" | "month" | "year";
+
+/** A repeat rule like the Todo list's "Custom…" repeat: every N
+ *  day(s)/week(s)/month(s)/year(s), counted from `anchor`. For `unit ===
+ *  "week"`, `weekdays` picks which day(s) of the on-weeks it's due (falls
+ *  back to anchor's own weekday if omitted). For "month"/"year", it recurs
+ *  on the same day-of-month as `anchor` (clamped down for short months —
+ *  e.g. an anchor of the 31st falls on the last day of a 30-day month). */
+export interface CustomFrequency {
+  type: "custom";
+  interval: number;
+  unit: FrequencyUnit;
+  weekdays?: Weekday[];
+  /** "YYYY-MM-DD" — the reference date the interval counts from (the habit
+   *  never applies before this date). */
+  anchor: string;
+}
+
 export type Frequency =
   | { type: "daily" }
-  | { type: "weekly"; days: Weekday[] };
+  // Kept for backward compatibility with habits saved before the "Custom"
+  // repeat editor — new/edited "specific days" habits are saved as
+  // `CustomFrequency` (unit: "week", interval: 1) instead.
+  | { type: "weekly"; days: Weekday[] }
+  | CustomFrequency;
 
 /** A quantity-based target, e.g. "20 pages" or "2 L" — makes a habit
  *  track an amount per day instead of a plain done/not-done check. */

@@ -11,6 +11,9 @@ interface Props {
   onCancel: () => void;
 }
 
+const RING_RADIUS = 54;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
 export function QuantityInput({
   initialValue,
   target,
@@ -58,8 +61,12 @@ export function QuantityInput({
     }
   })();
 
+  const progress = target > 0 ? Math.min(1, value / target) : 0;
+  const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
+  const reached = target > 0 && value >= target;
+
   return (
-    <div className="flex w-full max-w-sm mx-auto flex-col items-center gap-4 px-1 pb-1 animate-pop" onClick={(e) => e.stopPropagation()}>
+    <div className="flex w-full max-w-sm mx-auto flex-col items-center gap-5 px-1 pb-1 animate-pop" onClick={(e) => e.stopPropagation()}>
       {/* Date Title Context */}
       {title && (
         <span className="text-xs font-semibold text-muted tracking-wide uppercase">
@@ -67,18 +74,35 @@ export function QuantityInput({
         </span>
       )}
 
-      {/* Stepper controls */}
-      <div className="flex items-center justify-center gap-4 w-full max-w-[260px]">
+      {/* Progress ring with stepper controls */}
+      <div className="relative flex h-[176px] w-[176px] items-center justify-center">
+        <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
+          <circle cx="60" cy="60" r={RING_RADIUS} fill="none" stroke={`${color}1f`} strokeWidth="9" />
+          <circle
+            cx="60"
+            cy="60"
+            r={RING_RADIUS}
+            fill="none"
+            stroke={color}
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeDasharray={RING_CIRCUMFERENCE}
+            strokeDashoffset={dashOffset}
+            style={{ transition: "stroke-dashoffset .25s ease" }}
+          />
+        </svg>
+
         <button
           type="button"
           onClick={() => adjust(-1)}
-          className="tap-target flex h-10 w-10 items-center justify-center rounded-full transition-all active:scale-90 border-2"
+          aria-label="Decrease"
+          className="tap-target absolute left-0 flex h-10 w-10 items-center justify-center rounded-full transition-all active:scale-90 border-2 bg-surface"
           style={{ borderColor: `${color}40`, color: color }}
         >
           <Minus size={16} strokeWidth={2.5} />
         </button>
 
-        <div className="flex flex-col items-center min-w-[80px]">
+        <div className="flex flex-col items-center">
           <input
             type="number"
             inputMode="decimal"
@@ -87,16 +111,17 @@ export function QuantityInput({
             value={value === 0 ? "" : value}
             placeholder="0"
             onChange={handleInputChange}
-            className="w-full text-center text-2xl font-bold bg-transparent text-ink outline-none"
+            className="w-[88px] text-center text-3xl font-extrabold bg-transparent text-ink outline-none"
             style={{ caretColor: color }}
           />
-          <div className="h-0.5 w-16 mt-1 rounded-full" style={{ backgroundColor: color }} />
+          <span className="text-[11px] font-semibold text-muted -mt-1">{unit}</span>
         </div>
 
         <button
           type="button"
           onClick={() => adjust(1)}
-          className="tap-target flex h-10 w-10 items-center justify-center rounded-full transition-all active:scale-90 text-white shadow-sm"
+          aria-label="Increase"
+          className="tap-target absolute right-0 flex h-10 w-10 items-center justify-center rounded-full transition-all active:scale-90 text-white shadow-sm"
           style={{ backgroundColor: color }}
         >
           <Plus size={16} strokeWidth={2.5} />
@@ -104,21 +129,25 @@ export function QuantityInput({
       </div>
 
       {/* Target Goal Label */}
-      <span className="text-[12.5px] font-medium text-muted">
-        Goal: <span className="font-mono font-semibold text-ink">{target}</span> {unit}
+      <span className="text-[12.5px] font-medium text-muted -mt-2">
+        {reached ? (
+          <span className="font-semibold" style={{ color }}>Goal reached 🎉</span>
+        ) : (
+          <>Goal: <span className="font-mono font-semibold text-ink">{target}</span> {unit}</>
+        )}
       </span>
 
       {/* Quick Add Presets */}
-      <div className="flex flex-wrap justify-center gap-1.5 w-full mt-1">
+      <div className="flex flex-wrap justify-center gap-1.5 w-full">
         {presets.map((preset) => (
           <button
             key={preset}
             type="button"
             onClick={() => adjust(preset)}
-            className="px-3 py-1.5 text-xs font-bold rounded-xl transition-all active:scale-95 border"
+            className="px-3.5 py-2 text-xs font-bold rounded-xl transition-all active:scale-95 border"
             style={{
-              backgroundColor: `${color}08`,
-              borderColor: `${color}20`,
+              backgroundColor: `${color}0c`,
+              borderColor: `${color}26`,
               color: color
             }}
           >
@@ -128,7 +157,7 @@ export function QuantityInput({
       </div>
 
       {/* Action Dialog Buttons */}
-      <div className="flex gap-2 w-full mt-2">
+      <div className="flex gap-2 w-full mt-1">
         <button
           type="button"
           onClick={onCancel}

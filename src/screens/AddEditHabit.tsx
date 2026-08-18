@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, CalendarDays, Sparkles, Target } from "lucide-react";
+import { Bell, CalendarDays, Minus, Plus, Sparkles, Target } from "lucide-react";
 import { Modal } from "../components/ui/Modal";
 import { Button } from "../components/ui/Button";
 import { ColorPicker } from "../components/ui/ColorPicker";
@@ -10,7 +10,8 @@ import { useHabit } from "../hooks/useHabits";
 import { createHabit, updateHabit } from "../services/habitService";
 import { paletteDefault } from "../utils/palette";
 import { defaultIcon, getIcon } from "../utils/icons";
-import type { Weekday } from "../types/habit";
+import { todayStr } from "../utils/date";
+import type { Frequency, FrequencyUnit, Weekday } from "../types/habit";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
@@ -21,7 +22,12 @@ interface Props {
   onClose: () => void;
 }
 
-type FrequencyType = "daily" | "weekly";
+type FrequencyType = "daily" | "custom";
+
+// Common units offered as one-tap chips so most people never have to type
+// in the free-text field below — it's still there for anything unusual.
+const UNIT_PRESETS = ["min", "pages", "glasses", "steps", "km", "reps"];
+const TARGET_STEP = 1;
 
 export function AddEditHabit({ open, habitId, onClose }: Props) {
   const existing = useHabit(habitId);
@@ -32,7 +38,10 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
   const [color, setColor] = useState(paletteDefault());
   const [icon, setIcon] = useState(defaultIcon());
   const [frequencyType, setFrequencyType] = useState<FrequencyType>("daily");
+  const [repeatInterval, setRepeatInterval] = useState<number | "">("");
+  const [repeatUnit, setRepeatUnit] = useState<FrequencyUnit>("week");
   const [weeklyDays, setWeeklyDays] = useState<Weekday[]>([1, 2, 3, 4, 5]);
+  const [repeatAnchor, setRepeatAnchor] = useState<string>(todayStr());
   const [reminderTime, setReminderTime] = useState<string | undefined>(undefined);
   const [isMeasurable, setIsMeasurable] = useState(false);
   const [target, setTarget] = useState("20");
@@ -47,8 +56,28 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
       setName(existing.name);
       setColor(existing.color);
       setIcon(existing.icon ?? defaultIcon());
-      setFrequencyType(existing.frequency.type);
-      setWeeklyDays(existing.frequency.type === "weekly" ? existing.frequency.days : [1, 2, 3, 4, 5]);
+      const f = existing.frequency;
+      if (f.type === "daily") {
+        setFrequencyType("daily");
+        setRepeatInterval(1);
+        setRepeatUnit("week");
+        setWeeklyDays([1, 2, 3, 4, 5]);
+        setRepeatAnchor(todayStr());
+      } else if (f.type === "weekly") {
+        // Legacy "Specific days" habits saved before the Custom repeat
+        // editor — shown here as "every 1 week" on the same days.
+        setFrequencyType("custom");
+        setRepeatInterval(1);
+        setRepeatUnit("week");
+        setWeeklyDays(f.days);
+        setRepeatAnchor(todayStr());
+      } else {
+        setFrequencyType("custom");
+        setRepeatInterval(f.interval);
+        setRepeatUnit(f.unit);
+        setWeeklyDays(f.weekdays && f.weekdays.length > 0 ? f.weekdays : [1, 2, 3, 4, 5]);
+        setRepeatAnchor(f.anchor);
+      }
       setReminderTime(existing.reminderTime);
       setIsMeasurable(!!existing.measurement);
       setTarget(existing.measurement ? String(existing.measurement.target) : "20");
@@ -58,7 +87,10 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
       setColor(paletteDefault());
       setIcon(defaultIcon());
       setFrequencyType("daily");
+      setRepeatInterval("");
+      setRepeatUnit("week");
       setWeeklyDays([1, 2, 3, 4, 5]);
+      setRepeatAnchor(todayStr());
       setReminderTime(undefined);
       setIsMeasurable(false);
       setTarget("20");
@@ -74,9 +106,10 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
   const targetInvalid = isMeasurable && !(targetNum > 0);
   const unitInvalid = isMeasurable && unit.trim().length === 0;
   const isWhiteColor = color.toUpperCase() === "#FFFFFF";
+  const weekdaysInvalid = frequencyType === "custom" && repeatUnit === "week" && weeklyDays.length === 0;
   const canSave =
     name.trim().length > 0 &&
-    (frequencyType === "daily" || weeklyDays.length > 0) &&
+    !weekdaysInvalid &&
     !targetInvalid &&
     !unitInvalid;
 
@@ -84,8 +117,16 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
     if (!canSave || saving) return;
     setSaving(true);
     try {
-      const frequency =
-        frequencyType === "daily" ? ({ type: "daily" } as const) : ({ type: "weekly", days: weeklyDays } as const);
+      const frequency: Frequency =
+        frequencyType === "daily"
+          ? { type: "daily" }
+          : {
+              type: "custom",
+              interval: Math.max(1, Math.round(Number(repeatInterval) || 1)),
+              unit: repeatUnit,
+              anchor: repeatAnchor,
+              ...(repeatUnit === "week" ? { weekdays: weeklyDays } : {})
+            };
       const measurement = isMeasurable ? { target: targetNum, unit: unit.trim() } : undefined;
 
       // Check notification permissions if a reminder is being set
@@ -167,19 +208,56 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
             <span><CalendarDays size={15} /> Frequency</span>
           </div>
           <div className="habit-editor-segment">
-            {(["daily", "weekly"] as FrequencyType[]).map((ft) => {
+            {(["daily", "custom"] as FrequencyType[]).map((ft) => {
               const active = frequencyType === ft;
               return (
                 <button key={ft} type="button" onClick={() => setFrequencyType(ft)}
                   className={active ? "is-active" : ""} style={active ? { backgroundColor: color, color: isWhiteColor ? "#111827" : "#fff" } : undefined}>
-                  {ft === "daily" ? "Every day" : "Specific days"}
+                  {ft === "daily" ? "Every day" : "Custom"}
                 </button>
               );
             })}
           </div>
-          {frequencyType === "weekly" && (
+          {frequencyType === "custom" && (
             <div className="habit-create-weekdays">
-              <WeekdaySelector value={weeklyDays} onChange={setWeeklyDays} activeColor={color} activeTextColor={isWhiteColor ? "#111827" : "#fff"} />
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] text-muted">Every</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={repeatInterval}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setRepeatInterval("");
+                      return;
+                    }
+                    setRepeatInterval(Math.max(1, Math.round(Number(raw)) || 1));
+                  }}
+                  placeholder="1"
+                  className="w-16 rounded-lg border border-border bg-surface px-2 py-2 text-center text-[13px] text-ink outline-none"
+                />
+                <select
+                  value={repeatUnit}
+                  onChange={(e) => setRepeatUnit(e.target.value as FrequencyUnit)}
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-2 text-[13px] text-ink outline-none"
+                >
+                  <option value="day">day(s)</option>
+                  <option value="week">week(s)</option>
+                  <option value="month">month(s)</option>
+                  <option value="year">year(s)</option>
+                </select>
+              </div>
+              {repeatUnit === "week" && (
+                <div className="mt-3">
+                  <p className="mb-2 text-[11px] font-semibold text-muted">Repeat on</p>
+                  <div className="habit-create-weekdays-grid">
+                    <WeekdaySelector value={weeklyDays} onChange={setWeeklyDays} activeColor={color} activeTextColor={isWhiteColor ? "#111827" : "#fff"} />
+                  </div>
+                  {weekdaysInvalid && <p className="mt-2 text-[10px] font-semibold text-accent">Pick at least one day.</p>}
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -200,23 +278,73 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
             })}
           </div>
           {isMeasurable && (
-            <div className="habit-create-quantity">
-              <div>
+            <div className="habit-create-quantity habit-create-quantity-redesign">
+              <div className="habit-create-target-field">
                 <label htmlFor="habit-target">Daily target</label>
-                <input id="habit-target" type="number" inputMode="decimal" min={1} value={target}
-                  onChange={(e) => setTarget(e.target.value)} placeholder="20" aria-invalid={targetInvalid} />
+                <div className="habit-create-target-stepper">
+                  <button
+                    type="button"
+                    aria-label="Decrease target"
+                    onClick={() => {
+                      const next = Math.max(0, (Number(target.replace(",", ".")) || 0) - TARGET_STEP);
+                      setTarget(String(next));
+                    }}
+                    style={{ borderColor: `${color}40`, color }}
+                  >
+                    <Minus size={14} strokeWidth={2.5} />
+                  </button>
+                  <input
+                    id="habit-target"
+                    type="number"
+                    inputMode="decimal"
+                    min={1}
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                    placeholder="20"
+                    aria-invalid={targetInvalid}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Increase target"
+                    onClick={() => {
+                      const next = (Number(target.replace(",", ".")) || 0) + TARGET_STEP;
+                      setTarget(String(next));
+                    }}
+                    style={{ backgroundColor: color }}
+                  >
+                    <Plus size={14} strokeWidth={2.5} />
+                  </button>
+                </div>
               </div>
+
               <div className="habit-create-unit-field">
                 <label htmlFor="habit-unit">Unit</label>
+                <div className="habit-create-unit-chips" role="group" aria-label="Common units">
+                  {UNIT_PRESETS.map((preset) => {
+                    const active = unit.trim().toLowerCase() === preset;
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setUnit(preset)}
+                        aria-pressed={active}
+                        style={active ? { backgroundColor: color, borderColor: color, color: isWhiteColor ? "#111827" : "#fff" } : undefined}
+                      >
+                        {preset}
+                      </button>
+                    );
+                  })}
+                </div>
                 <input
                   id="habit-unit"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
-                  placeholder="e.g. pages, minutes, glasses"
+                  placeholder="or type your own, e.g. verres"
                   maxLength={20}
                   aria-invalid={unitInvalid}
                 />
               </div>
+
               {(targetInvalid || unitInvalid) && (
                 <p>{targetInvalid && unitInvalid ? "Enter a target above 0 and a unit." : targetInvalid ? "Enter a target above 0." : "Enter a unit."}</p>
               )}

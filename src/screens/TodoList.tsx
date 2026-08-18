@@ -407,8 +407,16 @@ function ScheduleEditor({
                     type="number"
                     min={1}
                     max={999}
-                    value={customRepeat.interval}
-                    onChange={(e) => setCustomRepeat({ ...customRepeat, interval: Math.max(1, Number(e.target.value) || 1) })}
+                    value={customRepeat.interval === 0 ? "" : customRepeat.interval}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === "") {
+                        setCustomRepeat({ ...customRepeat, interval: 0 });
+                        return;
+                      }
+                      setCustomRepeat({ ...customRepeat, interval: Math.max(1, Math.round(Number(raw)) || 1) });
+                    }}
+                    placeholder="1"
                     className="w-16 rounded-lg border border-border bg-surface px-2 py-2 text-center text-[13px] text-ink outline-none"
                   />
                   <select
@@ -425,7 +433,7 @@ function ScheduleEditor({
                 {customRepeat.unit === "week" && (
                   <div className="mt-3">
                     <p className="mb-2 text-[11px] font-semibold text-muted">Repeat on</p>
-                    <div className="grid grid-cols-7 gap-1">
+                    <div className="todo-repeat-weekdays grid grid-cols-7 gap-1">
                       {[[1,"M"],[2,"T"],[3,"W"],[4,"T"],[5,"F"],[6,"S"],[0,"S"]].map(([day, label]) => {
                         const n = Number(day);
                         const active = customRepeat.weekdays?.includes(n) ?? false;
@@ -456,12 +464,12 @@ function ScheduleEditor({
         <label className="flex items-center gap-3 rounded-xl px-3 py-3">
           <CalendarDays size={18} className="text-muted" />
           <span className="min-w-0 flex-1 text-[13px] font-medium text-ink">Due date</span>
-          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="rounded-lg bg-surface-2 px-2 py-1.5 text-[12px] text-ink outline-none" />
+          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={{ colorScheme: "light" }} className="rounded-lg bg-surface-2 px-2 py-1.5 text-[12px] text-ink outline-none" />
         </label>
         <label className="flex items-center gap-3 rounded-xl px-3 py-3">
           <Clock3 size={18} className="text-muted" />
           <span className="min-w-0 flex-1 text-[13px] font-medium text-ink">Due time</span>
-          <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="rounded-lg bg-surface-2 px-2 py-1.5 text-[12px] text-ink outline-none" />
+          <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} style={{ colorScheme: "light" }} className="rounded-lg bg-surface-2 px-2 py-1.5 text-[12px] text-ink outline-none" />
         </label>
         {(dueDate || dueTime) && (
           <button type="button" onClick={() => { setDueDate(""); setDueTime(""); }} className="w-full rounded-xl px-3 py-2 text-left text-[12px] font-semibold text-red-500 hover:bg-red-500/10">Remove due date/time</button>
@@ -506,7 +514,7 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
       text: trimmed,
       icon: editIcon,
       frequency: editFrequency,
-      customRepeat: editFrequency === "custom" ? editCustomRepeat : undefined,
+      customRepeat: editFrequency === "custom" ? { ...editCustomRepeat, interval: Math.max(1, editCustomRepeat.interval || 1) } : undefined,
       dueDate: editDueDate || undefined,
       dueTime: editDueTime || undefined
     });
@@ -763,7 +771,7 @@ export function TodoList() {
   const [text, setText] = useState("");
   const [icon, setIcon] = useState(defaultIcon());
   const [frequency, setFrequency] = useState<Todo["frequency"]>("once");
-  const [customRepeat, setCustomRepeat] = useState<TodoCustomRepeat>({ interval: 1, unit: "week", weekdays: [new Date().getDay()] });
+  const [customRepeat, setCustomRepeat] = useState<TodoCustomRepeat>({ interval: 0, unit: "week", weekdays: [new Date().getDay()] });
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -791,11 +799,18 @@ export function TodoList() {
     e.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
-    await createTodo({ text: trimmed, icon, frequency, customRepeat: frequency === "custom" ? customRepeat : undefined, dueDate: dueDate || undefined, dueTime: dueTime || undefined });
+    await createTodo({
+      text: trimmed,
+      icon,
+      frequency,
+      customRepeat: frequency === "custom" ? { ...customRepeat, interval: Math.max(1, customRepeat.interval || 1) } : undefined,
+      dueDate: dueDate || undefined,
+      dueTime: dueTime || undefined
+    });
     setText("");
     setIcon(defaultIcon());
     setFrequency("once");
-    setCustomRepeat({ interval: 1, unit: "week", weekdays: [new Date().getDay()] });
+    setCustomRepeat({ interval: 0, unit: "week", weekdays: [new Date().getDay()] });
     setDueDate("");
     setDueTime("");
     setScheduleOpen(false);
@@ -833,7 +848,7 @@ export function TodoList() {
 
         <form
           onSubmit={handleAdd}
-          className="task-composer mt-3 flex items-center gap-2 rounded-2xl border px-3 py-1.5"
+          className="task-composer mt-3 flex w-full items-center gap-2 rounded-2xl border px-3 py-1.5"
           style={{ backgroundColor: "rgb(var(--color-surface))", borderColor: "rgb(var(--color-border) / 0.6)" }}
         >
           <button
@@ -922,7 +937,7 @@ export function TodoList() {
             dueTime={dueTime}
             setDueTime={setDueTime}
           />
-          <button type="button" onClick={() => setScheduleOpen(false)} className="w-full rounded-xl bg-ink py-3 text-[14px] font-semibold text-white">Done</button>
+          <button type="button" onClick={() => setScheduleOpen(false)} className="w-full rounded-xl bg-ink py-3 text-[14px] font-semibold text-bg">Done</button>
         </div>
       </Modal>
 

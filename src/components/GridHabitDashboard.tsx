@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   CalendarDays,
   Check,
@@ -10,17 +10,15 @@ import {
   Moon,
   Plus,
   Sparkles,
-  Trash2,
 } from "lucide-react";
 import { useHabits, useLogsForHabit, useLogsInRange } from "../hooks/useHabits";
-import { archiveHabit, logMeasurement, toggleLog, toggleRest } from "../services/habitService";
+import { logMeasurement, toggleLog, toggleRest } from "../services/habitService";
 import { isHabitScheduledOn, addDays, todayStr, weekdayOf, monthDates } from "../utils/date";
 import { getIcon } from "../utils/icons";
 import { computeMonthlyStreak } from "../utils/streak";
 import { playCheckSound, playUncheckSound } from "../utils/sound";
 import type { Habit } from "../types/habit";
 import { StepCounterCard } from "./StepCounterCard";
-import { useConfirm } from "./ui/ConfirmDialog";
 
 interface Props {
   selectedDate: string;
@@ -76,22 +74,8 @@ function GridHabitRow({ habit, dates, selectedDate, onEdit }: { habit: Habit; da
   );
   const streak = computeMonthlyStreak(habit.frequency, doneDates, year, month, restDates);
   const Icon = getIcon(habit.icon);
-  const confirm = useConfirm();
   const cellLongPressTimer = useRef<number | null>(null);
   const cellLongPressTriggered = useRef(false);
-
-  async function handleDelete(e: MouseEvent) {
-    e.stopPropagation();
-    if (!habit.id) return;
-    const ok = await confirm({
-      title: "Delete Habit",
-      message: `Delete "${habit.name}"?\n\nThis can't be undone.`,
-      confirmText: "Delete",
-      cancelText: "Cancel",
-      type: "danger"
-    });
-    if (ok) await archiveHabit(habit.id);
-  }
 
   async function toggleDate(date: string) {
     if (!habit.id) return;
@@ -154,15 +138,6 @@ function GridHabitRow({ habit, dates, selectedDate, onEdit }: { habit: Habit; da
               )}
             </span>
           </span>
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          className="grid-mode-habit-delete"
-          aria-label={`Delete ${habit.name}`}
-          title={`Delete ${habit.name}`}
-        >
-          <Trash2 size={14} strokeWidth={2.2} />
         </button>
       </div>
 

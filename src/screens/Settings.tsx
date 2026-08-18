@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Chrome, Cloud, CloudDownload, Download, FileDown, FileUp, LogOut, UserCircle2 } from "lucide-react";
+import { Chrome, Cloud, CloudDownload, Download, FileDown, FileUp, Footprints, LogOut, UserCircle2 } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { exportHabitsCsv, exportTodosCsv, importCsv } from "../services/csvBackup";
 import { backupToDrive, restoreFromDrive, runAutoSyncNow } from "../services/driveBackup";
-import { getAutoSyncEnabled, getLastBackupAt, setAutoSyncEnabled, type FontPreference } from "../services/settings";
+import { getAutoSyncEnabled, getLastBackupAt, setAutoSyncEnabled, getAutoStepsEnabled, type FontPreference } from "../services/settings";
+import { enableAutoSteps, disableAutoSteps, getStepsToday, isStepsAvailableOnDevice } from "../services/stepTracker";
 import { useAutoSyncState } from "../hooks/useAutoSync";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 
@@ -16,16 +18,25 @@ interface Props {
 
 export function Settings({ session, onSignIn, onSignOut, font, onFontChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState<"habits" | "tasks" | "import" | "signin" | "signout" | "drive" | "restore" | "autoSyncToggle" | null>(null);
+  const [busy, setBusy] = useState<"habits" | "tasks" | "import" | "signin" | "signout" | "drive" | "restore" | "autoSyncToggle" | "autoStepsToggle" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [lastBackupAt, setLastBackupAtState] = useState<Date | null>(null);
   const [autoSyncEnabled, setAutoSyncEnabledState] = useState(false);
+  const [autoStepsEnabled, setAutoStepsEnabledState] = useState(false);
+  const [autoStepsAvailable, setAutoStepsAvailableState] = useState(true);
   const autoSync = useAutoSyncState();
   const confirm = useConfirm();
+  const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
     getLastBackupAt().then(setLastBackupAtState);
     getAutoSyncEnabled().then(setAutoSyncEnabledState);
+    getAutoStepsEnabled().then(setAutoStepsEnabledState);
+    if (isNative) {
+      isStepsAvailableOnDevice().then(setAutoStepsAvailableState);
+    } else {
+      setAutoStepsAvailableState(false);
+    }
   }, []);
 
   // Auto sync updates lastBackupAt on its own, in the background — keep the
@@ -144,6 +155,35 @@ export function Settings({ session, onSignIn, onSignOut, font, onFontChange }: P
     }
   }
 
+  async function handleToggleAutoSteps() {
+    if (busy) return;
+    setBusy("autoStepsToggle");
+    setMessage(null);
+    try {
+      if (autoStepsEnabled) {
+        await disableAutoSteps();
+        setAutoStepsEnabledState(false);
+      } else {
+        const permission = await enableAutoSteps();
+        if (permission !== "granted") {
+          setMessage(
+            permission === "denied"
+              ? "Allow physical activity access in your device settings to enable step tracking."
+              : "Step tracking is unavailable on this device."
+          );
+          setAutoStepsEnabledState(false);
+        } else {
+          setAutoStepsEnabledState(true);
+          void getStepsToday();
+        }
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Couldn't toggle step tracking.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const autoSyncStatusText =
     autoSync.status === "syncing"
       ? "Syncing…"
@@ -252,6 +292,37 @@ export function Settings({ session, onSignIn, onSignOut, font, onFontChange }: P
                 className={[
                   "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
                   autoSyncEnabled ? "translate-x-5" : "translate-x-0.5"
+                ].join(" ")}
+              />
+            </button>
+          </div>
+          <div className="settings-row">
+            <div className="settings-row-icon"><Footprints size={17} /></div>
+            <div className="settings-row-copy">
+              <strong>Automate step tracking</strong>
+              <span>
+                {!isNative
+                  ? "Available on the mobile app."
+                  : !autoStepsAvailable
+                  ? "Step sensor isn't available on this device."
+                  : autoStepsEnabled
+                  ? "Steps are tracked automatically in the background."
+                  : "Turn on to track your steps automatically."}
+              </span>
+            </div>
+            <button
+              onClick={() => void handleToggleAutoSteps()}
+              disabled={(busy !== null && busy !== "autoStepsToggle") || !isNative || !autoStepsAvailable}
+              aria-pressed={autoStepsEnabled}
+              className={[
+                "tap-target relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60",
+                autoStepsEnabled ? "bg-brand" : "bg-surface-2"
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                  autoStepsEnabled ? "translate-x-5" : "translate-x-0.5"
                 ].join(" ")}
               />
             </button>

@@ -134,7 +134,7 @@ export function LoopHabitRow({ habit, onEdit, selectedDate }: Props) {
       onSwipeRight={{
         onTrigger: handleDelete,
         icon: <Trash2 size={17} className="text-white" />,
-        confirmMessage: `Delete "${habit.name}"?`
+        requireConfirm: false
       }}
     >
       <div className="flex min-w-max items-center rounded-2xl bg-surface px-3 py-2.5 shadow-sm border border-border overflow-visible">

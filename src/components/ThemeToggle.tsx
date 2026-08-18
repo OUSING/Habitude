@@ -7,7 +7,7 @@ const MODE_META: Record<ThemeMode, { Icon: typeof Sparkles; label: string; color
   crimson: { Icon: Palette, label: "Crimson palette", color: "#a50104" },
   orange: { Icon: Flame, label: "Orange palette", color: "#ec3f13" },
   amber: { Icon: CircleDot, label: "Amber palette", color: "#ffaa00" },
-  purple: { Icon: Sparkles, label: "Purple palette", color: "#8338ec" },
+  purple: { Icon: Sparkles, label: "Purple palette", color: "#2c0735" },
   grey: { Icon: Cloud, label: "Grey palette", color: "#6b7280" }
 };
 

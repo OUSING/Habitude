@@ -1,4 +1,4 @@
-import type { Weekday } from "../types/habit";
+import type { CustomFrequency, Frequency, Weekday } from "../types/habit";
 
 /** "YYYY-MM-DD" in the device's local timezone (never UTC-shift via toISOString). */
 export function toDateStr(d: Date): string {
@@ -65,10 +65,58 @@ export function formatFullDate(dateStr: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function isHabitScheduledOn(
-  frequency: { type: "daily" } | { type: "weekly"; days: Weekday[] },
-  dateStr: string
-): boolean {
+export function isHabitScheduledOn(frequency: Frequency, dateStr: string): boolean {
   if (frequency.type === "daily") return true;
-  return frequency.days.includes(weekdayOf(dateStr));
+  if (frequency.type === "weekly") return frequency.days.includes(weekdayOf(dateStr));
+  return isCustomScheduledOn(frequency, dateStr);
+}
+
+/** Whole calendar days between two "YYYY-MM-DD" strings (b - a), DST-safe. */
+function daysBetween(aStr: string, bStr: string): number {
+  const a = new Date(`${aStr}T00:00:00`);
+  const b = new Date(`${bStr}T00:00:00`);
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
+function partsOf(dateStr: string): { year: number; month: number; day: number } {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return { year, month: month - 1, day };
+}
+
+function isCustomScheduledOn(frequency: CustomFrequency, dateStr: string): boolean {
+  const { interval, unit, weekdays, anchor } = frequency;
+  if (!(interval > 0) || dateStr < anchor) return false;
+
+  switch (unit) {
+    case "day": {
+      return daysBetween(anchor, dateStr) % interval === 0;
+    }
+    case "week": {
+      // Align to each date's own week-start (Sunday) so the interval counts
+      // whole weeks rather than raw days — otherwise a Sat->Sun rollover
+      // could land in a different "week bucket" than intended.
+      const weekStart = (d: string) => addDays(d, -weekdayOf(d));
+      const weeksSinceAnchor = daysBetween(weekStart(anchor), weekStart(dateStr)) / 7;
+      if (weeksSinceAnchor % interval !== 0) return false;
+      const days = weekdays && weekdays.length > 0 ? weekdays : [weekdayOf(anchor)];
+      return days.includes(weekdayOf(dateStr));
+    }
+    case "month": {
+      const a = partsOf(anchor);
+      const d = partsOf(dateStr);
+      const diffMonths = (d.year - a.year) * 12 + (d.month - a.month);
+      if (diffMonths < 0 || diffMonths % interval !== 0) return false;
+      const targetDay = Math.min(a.day, daysInMonth(d.year, d.month));
+      return d.day === targetDay;
+    }
+    case "year": {
+      const a = partsOf(anchor);
+      const d = partsOf(dateStr);
+      const diffYears = d.year - a.year;
+      if (diffYears < 0 || diffYears % interval !== 0) return false;
+      if (d.month !== a.month) return false;
+      const targetDay = Math.min(a.day, daysInMonth(d.year, d.month));
+      return d.day === targetDay;
+    }
+  }
 }

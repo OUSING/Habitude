@@ -14,8 +14,8 @@ const THEMES: { mode: ThemeMode; label: string; Icon: typeof Sparkles; color: st
     mode: "purple",
     label: "Purple",
     Icon: Sparkles,
-    color: "#8338ec",
-    gradient: "linear-gradient(90deg, #6d28d9 0%, #8338ec 50%, #a78bfa 100%)"
+    color: "#2c0735",
+    gradient: "linear-gradient(90deg, #1c0421 0%, #2c0735 50%, #4a0c58 100%)"
   },
   { mode: "grey", label: "Grey", Icon: Cloud, color: "#6b7280" }
 ];

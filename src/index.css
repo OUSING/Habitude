@@ -1790,11 +1790,6 @@ body {
     padding: 18px 34px 14px;
   }
 
-  .desktop-content .flex.h-full.flex-col > header form {
-    max-width: 440px;
-    margin-top: 14px;
-  }
-
   .desktop-content .flex.h-full.flex-col > main {
     max-width: 1120px;
     width: 100%;
@@ -2010,6 +2005,23 @@ body {
 }
 .habit-editor .tap-target.rounded-xl.bg-surface-2 {
   border:1px solid transparent;
+}
+/* The generic borderless-input reset above (`input#habit-unit`) strips the
+   rounded card look intended for the "type your own unit" field inside the
+   redesigned quantity editor. Restore it here with matching specificity so
+   the field never renders with hard/sharp corners. */
+.habit-editor .habit-create-quantity input#habit-unit {
+  border:1px solid rgb(var(--color-border) / .85) !important;
+  border-radius:16px !important;
+  background:rgb(var(--color-surface-2) / .62) !important;
+  padding:0 14px !important;
+  box-shadow:none !important;
+}
+.habit-editor .habit-create-quantity input#habit-unit:focus,
+.habit-editor .habit-create-quantity input#habit-unit:focus-visible {
+  border-color:rgb(var(--color-accent) / .7) !important;
+  background:rgb(var(--color-surface)) !important;
+  box-shadow:0 0 0 4px rgb(var(--color-accent) / .10) !important;
 }
 
 .grid-mode-calendar-scroll { overflow-x:auto; overscroll-behavior-x:contain; border-radius:14px; }
@@ -2308,8 +2320,8 @@ body {
    ------------------------------------------------------------------------- */
 .theme-crimson { --theme-main:#a50104; --color-bg:243 234 233; --color-surface:255 252 252; --color-surface-2:247 228 229; --color-ink:55 18 20; --color-muted:116 78 80; --color-border:231 199 199; --color-brand:165 1 4; --color-brand-light:255 143 163; --color-accent:165 1 4; --color-accent-light:255 170 0; }
 .theme-orange-custom { --theme-main:#ec3f13; --color-bg:245 235 227; --color-surface:255 253 252; --color-surface-2:250 231 224; --color-ink:58 29 21; --color-muted:124 88 76; --color-border:244 209 196; --color-brand:236 63 19; --color-brand-light:255 143 163; --color-accent:236 63 19; --color-accent-light:255 170 0; }
-.theme-amber { --theme-main:#ffaa00; --color-bg:247 238 219; --color-surface:255 254 248; --color-surface-2:255 238 194; --color-ink:59 42 12; --color-muted:126 101 57; --color-border:248 228 186; --color-brand:255 170 0; --color-brand-light:255 143 163; --color-accent:236 63 19; --color-accent-light:255 170 0; }
-.theme-purple { --theme-main:#8338ec; --theme-gradient:linear-gradient(90deg, #6d28d9 0%, #8338ec 50%, #a78bfa 100%); --theme-dark-solid:#200b24; --color-bg:241 238 250; --color-surface:255 253 255; --color-surface-2:234 229 248; --color-ink:35 25 51; --color-muted:102 92 132; --color-border:222 213 245; --color-brand:131 56 236; --color-brand-light:196 181 253; --color-accent:131 56 236; --color-accent-light:196 181 253; }
+.theme-amber { --theme-main:#ffaa00; --color-bg:247 238 219; --color-surface:255 254 248; --color-surface-2:255 238 194; --color-ink:59 42 12; --color-muted:126 101 57; --color-border:248 228 186; --color-brand:255 170 0; --color-brand-light:255 143 163; --color-accent:255 170 0; --color-accent-light:255 210 110; }
+.theme-purple { --theme-main:#2c0735; --theme-gradient:linear-gradient(90deg, #1c0421 0%, #2c0735 50%, #4a0c58 100%); --theme-dark-solid:#2c0735; --color-bg:241 238 250; --color-surface:255 253 255; --color-surface-2:234 229 248; --color-ink:35 25 51; --color-muted:102 92 132; --color-border:222 213 245; --color-brand:44 7 53; --color-brand-light:196 181 253; --color-accent:44 7 53; --color-accent-light:196 181 253; }
 .theme-grey { --theme-main:#6b7280; --color-bg:236 237 239; --color-surface:255 255 255; --color-surface-2:225 227 231; --color-ink:31 33 38; --color-muted:103 107 117; --color-border:213 216 222; --color-brand:107 114 128; --color-brand-light:214 216 221; --color-accent:75 85 99; --color-accent-light:214 216 221; }
 
 .theme-crimson .text-brand,.theme-orange-custom .text-brand,.theme-amber .text-brand,.theme-purple .text-brand,.theme-grey .text-brand { color:var(--theme-main); }
@@ -2319,8 +2331,8 @@ body {
 
 .theme-crimson.theme-dark-mode { --color-bg:8 3 4; --color-surface:19 7 9; --color-surface-2:36 10 13; --color-ink:255 244 245; --color-muted:194 149 153; --color-border:68 8 11; --color-brand:165 1 4; --color-brand-light:255 143 163; --color-accent:165 1 4; --color-accent-light:255 170 0; }
 .theme-orange-custom.theme-dark-mode { --color-bg:9 5 4; --color-surface:20 9 6; --color-surface-2:38 16 10; --color-ink:255 246 241; --color-muted:196 153 136; --color-border:88 28 12; --color-brand:236 63 19; --color-brand-light:255 143 163; --color-accent:236 63 19; --color-accent-light:255 170 0; }
-.theme-amber.theme-dark-mode { --color-bg:10 7 2; --color-surface:22 15 4; --color-surface-2:41 28 6; --color-ink:255 248 230; --color-muted:201 171 106; --color-border:95 64 5; --color-brand:255 170 0; --color-brand-light:255 143 163; --color-accent:236 63 19; --color-accent-light:255 170 0; }
-.theme-purple.theme-dark-mode { --color-bg:10 8 17; --color-surface:20 15 32; --color-surface-2:34 26 52; --color-ink:245 240 255; --color-muted:176 160 205; --color-border:66 50 96; --color-brand:131 56 236; --color-brand-light:196 181 253; --color-accent:167 139 250; --color-accent-light:196 181 253; }
+.theme-amber.theme-dark-mode { --color-bg:10 7 2; --color-surface:22 15 4; --color-surface-2:41 28 6; --color-ink:255 248 230; --color-muted:201 171 106; --color-border:95 64 5; --color-brand:255 170 0; --color-brand-light:255 143 163; --color-accent:255 170 0; --color-accent-light:255 210 110; }
+.theme-purple.theme-dark-mode { --theme-main:#8338ec; --theme-gradient:linear-gradient(90deg, #6d28d9 0%, #8338ec 50%, #a78bfa 100%); --theme-dark-solid:#200b24; --color-bg:10 8 17; --color-surface:20 15 32; --color-surface-2:34 26 52; --color-ink:245 240 255; --color-muted:176 160 205; --color-border:66 50 96; --color-brand:131 56 236; --color-brand-light:196 181 253; --color-accent:167 139 250; --color-accent-light:196 181 253; }
 .theme-grey.theme-dark-mode { --color-bg:10 10 11; --color-surface:20 20 22; --color-surface-2:34 34 38; --color-ink:245 245 247; --color-muted:161 163 171; --color-border:52 53 58; --color-brand:148 153 163; --color-accent:161 165 173; --color-brand-light:214 216 221; --color-accent-light:214 216 221; }
 
 /* "Purple" theme option: a single purple hue throughout (dark violet to
@@ -2330,7 +2342,8 @@ body {
 .theme-purple .desktop-primary-btn { background: var(--theme-dark-solid) !important; color: #fff; }
 .theme-purple .grid-mode-week-header button.selected { background: var(--theme-dark-solid) !important; color: #fff; }
 .theme-purple .grid-mode-footer-bar-fill { background: var(--theme-gradient); }
-.theme-purple .desktop-view-toggle button.active { box-shadow: inset 0 0 0 1px #8338ec; }
+.theme-purple .desktop-view-toggle button.active { box-shadow: inset 0 0 0 1px #2c0735; }
+.theme-purple.theme-dark-mode .desktop-view-toggle button.active { box-shadow: inset 0 0 0 1px #8338ec; }
 .theme-purple .bottombar-quantity-bar-fill { background: var(--theme-gradient); }
 
 /* Purple theme: the "add" controls and the selected day chip default to a
@@ -2635,6 +2648,30 @@ button:active,
   border-radius:12px;
   background:rgb(var(--color-surface-2));
 }
+/* The weekday circles use the shared 44px tap-target minimum, which is
+   correct for a full-width row but reads oversized inside this compact
+   "Repeat on" panel in a wider webview. Keep them tappable but smaller. */
+.habit-create-weekdays-grid .grid-cols-7 {
+  grid-template-columns:repeat(7, 34px);
+  justify-content:space-between;
+}
+.habit-create-weekdays-grid .tap-target {
+  min-width:34px;
+  min-height:34px;
+  width:34px;
+  height:34px;
+}
+/* Same sizing fix for the Todo list's "customized frequency" weekday
+   picker, which uses plain aspect-square buttons that otherwise stretch
+   to fill the full row width. */
+.todo-repeat-weekdays {
+  grid-template-columns:repeat(7, 34px);
+  justify-content:space-between;
+}
+.todo-repeat-weekdays button {
+  width:34px;
+  height:34px;
+}
 .habit-create-quantity {
   display:grid;
   grid-template-columns:minmax(0, .9fr) minmax(0, 1.1fr);
@@ -2697,6 +2734,59 @@ button:active,
 }
 .habit-create-unit-field { min-width:0; }
 .habit-create-unit-field input { min-width:0; }
+
+/* Redesigned "measure" containers (daily target + unit) inside the
+   quantity habit editor — a full-width stepper for the target and
+   one-tap unit chips instead of two bare side-by-side inputs. */
+.habit-create-quantity-redesign {
+  grid-template-columns: 1fr;
+}
+.habit-create-target-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.habit-create-target-stepper input {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.habit-create-target-stepper button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  transition: transform .12s ease;
+}
+.habit-create-target-stepper button:active { transform: scale(.9); }
+.habit-create-target-stepper button:first-child {
+  background: rgb(var(--color-surface));
+  border: 2px solid rgb(var(--color-border));
+}
+.habit-create-target-stepper button:last-child {
+  color: #fff;
+  border: none;
+}
+.habit-create-unit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+.habit-create-unit-chips button {
+  padding: 7px 12px;
+  border-radius: 12px;
+  border: 1px solid rgb(var(--color-border) / .85);
+  background: rgb(var(--color-surface-2) / .62);
+  color: rgb(var(--color-muted));
+  font-size: 12px;
+  font-weight: 700;
+  transition: transform .1s ease, background-color .15s ease, border-color .15s ease;
+}
+.habit-create-unit-chips button:active { transform: scale(.94); }
 
 .habit-create-actions {
   margin-top:10px;
