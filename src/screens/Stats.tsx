@@ -17,7 +17,6 @@ import { WeekChart } from "../components/WeekChart";
 import { MonthChart } from "../components/MonthChart";
 import { RegularityLineChart } from "../components/RegularityLineChart";
 import { QuantityChart } from "../components/QuantityChart";
-import { StepHistoryChart } from "../components/StepHistoryChart";
 import { ActivityHistoryChart } from "../components/ActivityHistoryChart";
 import { useHabits, useLogsForHabit } from "../hooks/useHabits";
 import { monthlyCompletionRate, computeMonthlyStreak } from "../utils/streak";
@@ -175,10 +174,6 @@ function HabitRateRow({ habit, year, month }: { habit: Habit; year: number; mont
   );
 }
 
-function enabledStepTrackingForChart(): boolean {
-  return Capacitor.isNativePlatform();
-}
-
 export function Stats() {
   const habits = useHabits();
   const measurableHabits = habits.filter((h) => h.measurement);
@@ -280,8 +275,6 @@ export function Stats() {
             </section>
 
             <StepTrackingSection />
-
-            {enabledStepTrackingForChart() && <StepHistoryChart days={7} />}
           </div>
 
           <div className="flex flex-col lg:col-start-2">

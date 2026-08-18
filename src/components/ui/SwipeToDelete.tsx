@@ -33,11 +33,17 @@ const THRESHOLD = 40; // px of horizontal movement needed to count as "a swipe"
 /**
  * Wraps a row (habit card, loop row, to-do item…) so swiping it left or
  * right triggers a side-specific action — e.g. swipe right to delete.
- * This is a simple gesture sensor: once the drag crosses THRESHOLD in a
- * direction with a registered action, the action fires immediately (no
- * need to drag further or release at a precise spot), and the row snaps
- * back. Pointer capture keeps the gesture from being dropped if the
- * cursor moves quickly, which matters most for mouse/desktop dragging.
+ * This is a simple gesture sensor: the row tracks the finger/cursor while
+ * dragging, and once the finger LIFTS past THRESHOLD in a direction with
+ * a registered action, that action fires. Pointer capture keeps the
+ * gesture from being dropped if the cursor moves quickly, which matters
+ * most for mouse/desktop dragging.
+ *
+ * Firing only happens on release (not mid-drag): on touch devices,
+ * firing while the finger is still down would mount the confirm
+ * dialog's full-screen backdrop underneath that same finger, and the
+ * eventual lift-off gets turned into a synthetic click on the backdrop
+ * — instantly dismissing the dialog before the user ever sees it.
  */
 export function SwipeToDelete({ children, className, onSwipeLeft, onSwipeRight }: Props) {
   const [dragX, setDragX] = useState(0);
@@ -109,14 +115,8 @@ export function SwipeToDelete({ children, className, onSwipeLeft, onSwipeRight }
     const max = onSwipeRight ? THRESHOLD : 0;
     const clamped = Math.min(max, Math.max(min, dx));
     setDragX(clamped);
-
-    // Simple sensor: as soon as the swipe crosses the threshold, fire
-    // right away rather than waiting for the pointer to lift.
-    if (clamped <= -THRESHOLD && onSwipeLeft) {
-      void fireAction(onSwipeLeft, -1);
-    } else if (clamped >= THRESHOLD && onSwipeRight) {
-      void fireAction(onSwipeRight, 1);
-    }
+    // Firing happens on release (handlePointerUp) — see the note above
+    // the component for why this can't happen mid-drag.
   }
 
   function handlePointerUp(e: ReactPointerEvent) {
@@ -124,6 +124,25 @@ export function SwipeToDelete({ children, className, onSwipeLeft, onSwipeRight }
     pointerId.current = null;
     axis.current = null;
     setIsDragging(false);
+
+    if (fired.current) return;
+
+    if (dragX <= -THRESHOLD && onSwipeLeft) {
+      void fireAction(onSwipeLeft, -1);
+    } else if (dragX >= THRESHOLD && onSwipeRight) {
+      void fireAction(onSwipeRight, 1);
+    } else {
+      setDragX(0);
+    }
+  }
+
+  function handlePointerCancel(e: ReactPointerEvent) {
+    if (pointerId.current !== e.pointerId) return;
+    pointerId.current = null;
+    axis.current = null;
+    setIsDragging(false);
+    // The gesture was interrupted (e.g. by the OS) rather than released
+    // by the user — never fire, just snap back.
     if (!fired.current) setDragX(0);
   }
 
@@ -168,8 +187,8 @@ export function SwipeToDelete({ children, className, onSwipeLeft, onSwipeRight }
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onLostPointerCapture={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={handlePointerCancel}
         style={{ transform: `translateX(${dragX}px)`, touchAction: "pan-y" }}
         className={["relative", isDragging ? "" : "transition-transform duration-200 ease-out"].join(" ")}
       >

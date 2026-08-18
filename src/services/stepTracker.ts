@@ -52,6 +52,34 @@ export async function getStepsForDate(date: string): Promise<number> {
   }
 }
 
+function todayDateStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Upserts today's pedometer total into the synchronized activity log so
+ * it shows up in "Synced activity" as soon as it changes on the phone —
+ * without waiting for a full Google Drive backup/restore cycle. */
+async function upsertTodayStepsActivity(steps: number): Promise<void> {
+  const date = todayDateStr();
+  const id = `steps-${date}`;
+  const value = Math.max(0, Math.round(steps));
+  try {
+    const existing = await db.activityLogs.get(id);
+    if (existing?.type === "steps" && existing.value === value) return;
+    await db.activityLogs.put({
+      id,
+      date,
+      type: "steps",
+      value,
+      source: "phone",
+      createdAt: Date.now()
+    });
+  } catch (err) {
+    console.warn("Could not save today's steps to the synced activity log", err);
+  }
+}
+
 let liveListenerHandle: PluginListenerHandle | undefined;
 let liveListenerStart: Promise<void> | undefined;
 
@@ -63,17 +91,31 @@ export async function removeLegacyStepsHabit(): Promise<void> {
   await setStepsHabitId(-1);
 }
 
-/** Starts the native listener. It only updates the step-counter UI through the
- * plugin event; it never creates or logs a habit. */
+/** Starts the native listener. It updates the step-counter UI through the
+ * plugin event and keeps today's synced activity entry current; it never
+ * creates or logs a habit. */
 export async function startLiveStepUpdates(): Promise<void> {
   if (!isNative() || liveListenerHandle || liveListenerStart) return;
   liveListenerStart = (async () => {
     if (!(await getAutoStepsEnabled())) return;
     if ((await checkStepsPermission()) !== "granted") return;
     await removeLegacyStepsHabit();
-    liveListenerHandle = await StepCounter.addListener("stepsChanged", () => {
-      // The UI subscribes directly to the same native event. Nothing is written to habits here.
+    liveListenerHandle = await StepCounter.addListener("stepsChanged", ({ today }) => {
+      // The UI subscribes directly to the same native event for display.
+      // Here we also keep today's row in the synced activity log current,
+      // so Synced activity reflects live pedometer counts, not just what
+      // the last Drive backup happened to capture.
+      void upsertTodayStepsActivity(today);
     });
+    // Seed today's row immediately so it's visible in Synced activity as
+    // soon as tracking is armed, rather than waiting for the first
+    // stepsChanged event (which only fires on the next increment).
+    try {
+      const { today } = await StepCounter.sync();
+      void upsertTodayStepsActivity(today);
+    } catch (err) {
+      console.warn("Could not seed today's steps into the synced activity log", err);
+    }
   })();
   try { await liveListenerStart; } finally { liveListenerStart = undefined; }
 }
