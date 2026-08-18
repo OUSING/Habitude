@@ -113,7 +113,7 @@ export async function signInWithGoogleWeb(clientId: string): Promise<GoogleWebSi
   const code = await new Promise<string>((resolve, reject) => {
     const client = google.accounts.oauth2.initCodeClient({
       client_id: clientId,
-      scope: "openid email profile https://www.googleapis.com/auth/drive.file",
+      scope: "openid email profile https://www.googleapis.com/auth/drive",
       ux_mode: "popup",
       // Without this, GIS silently reuses whichever Google account is
       // currently active in the browser instead of offering a choice —

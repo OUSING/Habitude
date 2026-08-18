@@ -49,7 +49,7 @@ import {
  */
 
 const GOOGLE_WEB_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
-export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 const BACKUP_FILENAME = "habitude-backup.json";
 const BACKUP_VERSION = 3;
 

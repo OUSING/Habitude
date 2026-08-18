@@ -14,7 +14,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 if (Capacitor.isNativePlatform()) {
   GoogleAuth.initialize({
     clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '',
-    scopes: ['profile', 'email', 'https://www.googleapis.com/auth/drive.file'],
+    scopes: ['profile', 'email', 'https://www.googleapis.com/auth/drive'],
     grantOfflineAccess: true,
   });
 }

@@ -36,7 +36,7 @@ var config = {
             // "drive.file" is included here (not just "profile"/"email") so the
             // access token returned by GoogleAuth.signIn()/refresh() on native
             // is also valid for the Drive backup calls in services/driveBackup.ts.
-            scopes: ["profile", "email", "https://www.googleapis.com/auth/drive.file"],
+            scopes: ["profile", "email", "https://www.googleapis.com/auth/drive"],
             serverClientId: (_a = process.env.VITE_GOOGLE_CLIENT_ID) !== null && _a !== void 0 ? _a : "",
             forceCodeForRefreshToken: true
         },
