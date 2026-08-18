@@ -46,6 +46,20 @@ export async function setDarkMode(enabled: boolean): Promise<void> {
   await Preferences.set({ key: DARK_MODE_KEY, value: String(enabled) });
 }
 
+/* ------------------------------ Font choice ------------------------------ */
+
+const FONT_KEY = "habit-tracker:font";
+export type FontPreference = "jojoba" | "pretty-neat";
+
+export async function getFontPreference(): Promise<FontPreference> {
+  const { value } = await Preferences.get({ key: FONT_KEY });
+  return value === "pretty-neat" ? "pretty-neat" : "jojoba";
+}
+
+export async function setFontPreference(font: FontPreference): Promise<void> {
+  await Preferences.set({ key: FONT_KEY, value: font });
+}
+
 /* --------------------------- Dashboard view mode --------------------------- */
 
 const VIEW_MODE_KEY = "habit-tracker:viewMode";

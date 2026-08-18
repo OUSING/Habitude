@@ -13,7 +13,7 @@ import { useStepSync } from "./hooks/useStepSync";
 import { useTheme } from "./hooks/useTheme";
 import { useAuth } from "./hooks/useAuth";
 import { todayStr } from "./utils/date";
-import { getViewMode, setViewMode, type ViewMode, type ThemeMode } from "./services/settings";
+import { getFontPreference, getViewMode, setFontPreference, setViewMode, type FontPreference, type ViewMode, type ThemeMode } from "./services/settings";
 import { initHabitWidgetSync, syncHabitWidget } from "./services/habitWidget";
 import { initAutoSync, initAutoPull } from "./services/driveBackup";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
@@ -126,13 +126,24 @@ function AppContent({ theme, isDark, toggleTheme, toggleDark, session, onSignIn,
   }, []);
   const [editingHabitId, setEditingHabitId] = useState<number | undefined>(undefined);
   const [viewMode, setViewModeState] = useState<ViewMode>("list");
+  const [font, setFont] = useState<FontPreference>("jojoba");
 
   useNotificationSetup();
   useStepSync();
 
   useEffect(() => {
     getViewMode().then(setViewModeState);
+    getFontPreference().then((saved) => {
+      setFont(saved);
+      document.documentElement.dataset.font = saved;
+    });
   }, []);
+
+  function changeFont(next: FontPreference) {
+    setFont(next);
+    document.documentElement.dataset.font = next;
+    void setFontPreference(next);
+  }
 
   function changeViewMode(mode: ViewMode) {
     setViewModeState(mode);
@@ -188,6 +199,8 @@ function AppContent({ theme, isDark, toggleTheme, toggleDark, session, onSignIn,
               session={session}
               onSignIn={onSignIn}
               onSignOut={onSignOut}
+              font={font}
+              onFontChange={changeFont}
             />
           )}
         </DesktopShell>
@@ -261,6 +274,8 @@ function AppContent({ theme, isDark, toggleTheme, toggleDark, session, onSignIn,
                   session={session}
                   onSignIn={onSignIn}
                   onSignOut={onSignOut}
+                  font={font}
+                  onFontChange={changeFont}
                 />
               </div>
             </div>

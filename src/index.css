@@ -1,3 +1,6 @@
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap");
+@import url("https://db.onlinewebfonts.com/c/9aaa1fe046680104b4520f6aff87e106?family=Jojoba");
+@import url("https://db.onlinewebfonts.com/c/0ea13a1b1440318bab44ef22e59e7d03?family=Pretty+Neat");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -81,7 +84,7 @@ body,
 
 body {
   margin: 0;
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Nunito", system-ui, sans-serif;
   color: rgb(var(--color-ink));
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
@@ -2503,3 +2506,298 @@ button:active,
   background: rgb(var(--color-accent) / 0.28);
   color: rgb(var(--color-ink));
 }
+
+
+/* -------------------------------------------------------------------------
+   Focused habit creation / editing
+   ------------------------------------------------------------------------- */
+.habit-editor-simple {
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  max-width:620px;
+  margin:0 auto;
+}
+
+.habit-create-intro {
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:2px 0 18px;
+  border-bottom:1px solid rgb(var(--color-border) / .45);
+  margin-bottom:18px;
+}
+.habit-create-preview {
+  width:50px;
+  height:50px;
+  flex:0 0 50px;
+  display:grid;
+  place-items:center;
+  border-radius:15px;
+}
+.habit-create-kicker {
+  display:block;
+  font-size:13px;
+  font-weight:800;
+  color:rgb(var(--color-ink));
+}
+.habit-create-hint {
+  margin:3px 0 0;
+  font-size:11px;
+  line-height:1.4;
+  color:rgb(var(--color-muted));
+}
+
+.habit-create-field {
+  margin-bottom:18px;
+}
+.habit-create-field label,
+.habit-create-quantity label {
+  display:block;
+  margin-bottom:7px;
+  font-size:11px;
+  font-weight:750;
+  color:rgb(var(--color-muted));
+}
+.habit-create-name-input {
+  width:100%;
+  min-height:50px;
+  padding:0 15px !important;
+  border:1px solid rgb(var(--color-border)) !important;
+  border-radius:14px !important;
+  background:rgb(var(--color-surface-2)) !important;
+  color:rgb(var(--color-ink));
+  font-size:16px;
+  font-weight:650;
+  outline:none;
+  box-shadow:none !important;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.habit-create-name-input:focus {
+  border-color:rgb(var(--color-ink) / .45) !important;
+  box-shadow:0 0 0 3px rgb(var(--color-ink) / .06) !important;
+}
+.habit-create-name-input::placeholder { color:rgb(var(--color-muted) / .65); }
+
+.habit-create-section {
+  padding:16px 0;
+  border-top:1px solid rgb(var(--color-border) / .35);
+}
+.habit-create-section-heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:11px;
+}
+.habit-create-section-heading span {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:rgb(var(--color-ink));
+  font-size:12px;
+  font-weight:800;
+}
+.habit-create-section-heading span svg { color:rgb(var(--color-muted)); }
+.habit-create-section-heading small {
+  color:rgb(var(--color-muted));
+  font-size:10px;
+  font-weight:600;
+}
+
+.habit-editor-simple .habit-color-palette {
+  display:grid;
+  grid-template-columns:repeat(7, minmax(0, 1fr));
+  gap:8px;
+  max-width:100%;
+}
+.habit-editor-simple .habit-color-swatch {
+  width:100%;
+  min-width:0;
+  height:42px;
+  min-height:42px;
+  border:0;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  box-shadow:inset 0 0 0 1px rgb(255 255 255 / .14);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.habit-editor-simple .habit-color-swatch[aria-checked="true"] {
+  box-shadow:inset 0 0 0 2px #fff, 0 0 0 2px rgb(var(--color-ink) / .7);
+}
+.habit-editor-simple .habit-color-swatch:active { transform:scale(.94); }
+
+.habit-editor-simple .habit-editor-segment { margin-bottom:0; }
+.habit-create-weekdays {
+  margin-top:10px;
+  padding:8px;
+  border-radius:12px;
+  background:rgb(var(--color-surface-2));
+}
+.habit-create-quantity {
+  display:grid;
+  grid-template-columns:minmax(0, .9fr) minmax(0, 1.1fr);
+  gap:12px;
+  margin-top:12px;
+  padding:14px;
+  border:1px solid rgb(var(--color-border) / .55);
+  border-radius:22px;
+  background:rgb(var(--color-surface) / .88);
+  box-shadow:0 8px 24px rgb(var(--color-ink) / .045);
+}
+.habit-create-quantity > div { min-width:0; }
+.habit-create-quantity label {
+  display:block;
+  margin:0 0 7px;
+  font-size:10px;
+  letter-spacing:.04em;
+  text-transform:none;
+  font-weight:800;
+  color:rgb(var(--color-muted));
+}
+.habit-create-quantity input {
+  width:100%;
+  min-height:48px;
+  padding:0 14px;
+  border:1px solid rgb(var(--color-border) / .85) !important;
+  border-radius:16px;
+  background:rgb(var(--color-surface-2) / .62) !important;
+  color:rgb(var(--color-ink));
+  font-family:"Nunito", system-ui, sans-serif;
+  font-size:15px;
+  font-weight:700;
+  outline:none;
+  transition:border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.habit-create-quantity input::placeholder {
+  color:rgb(var(--color-muted) / .5);
+  font-weight:500;
+}
+.habit-create-quantity input:focus {
+  border-color:rgb(var(--color-accent) / .7) !important;
+  background:rgb(var(--color-surface)) !important;
+  box-shadow:0 0 0 4px rgb(var(--color-accent) / .10);
+}
+.habit-create-quantity p {
+  grid-column:1 / -1;
+  margin:0;
+  color:rgb(var(--color-accent));
+  font-size:10px;
+  font-weight:700;
+}
+.habit-create-quantity input[type="number"] {
+  appearance:textfield;
+  -moz-appearance:textfield;
+}
+.habit-create-quantity input[type="number"]::-webkit-outer-spin-button,
+.habit-create-quantity input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance:none;
+  margin:0;
+}
+.habit-create-unit-field { min-width:0; }
+.habit-create-unit-field input { min-width:0; }
+
+.habit-create-actions {
+  margin-top:10px;
+  padding-top:12px;
+}
+.habit-create-delete {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  width:100%;
+  margin-top:2px;
+  padding:9px;
+  border-radius:10px;
+  color:rgb(var(--color-accent));
+  font-size:12px;
+  font-weight:700;
+}
+.habit-create-delete:active { background:rgb(var(--color-accent) / .08); }
+
+@media (max-width:699px) {
+  .habit-editor-simple { max-width:none; }
+  .habit-editor-simple .habit-color-palette { gap:6px; }
+  .habit-editor-simple .habit-color-swatch { height:38px; min-height:38px; border-radius:10px; }
+}
+@media (min-width:700px) {
+  .habit-editor-simple .habit-create-intro { padding-top:0; }
+}
+
+/* Typography: Nunito keeps the interface clean; Jojoba is reserved for
+   friendly display moments so the handwritten face doesn't hurt readability. */
+.habit-create-intro .habit-create-kicker,
+.habit-create-section-heading span {
+  font-family:"Jojoba","Nunito",system-ui,sans-serif;
+  letter-spacing:.01em;
+}
+.habit-create-intro .habit-create-kicker {
+  font-size:15px;
+  font-weight:400;
+}
+
+
+/* User-selectable handwriting fonts. The preference is stored with Capacitor Preferences. */
+html[data-font="jojoba"] body { font-family: "Jojoba", "Nunito", system-ui, sans-serif; }
+html[data-font="pretty-neat"] body { font-family: "Pretty Neat", "Nunito", system-ui, sans-serif; }
+html[data-font="jojoba"] .font-display,
+html[data-font="pretty-neat"] .font-display { font-family: inherit; }
+
+.settings-font-options { display:grid; gap:10px; padding:0 20px 18px; }
+.settings-font-option {
+  width:100%; display:flex; align-items:center; gap:12px; text-align:left;
+  min-height:68px; padding:10px 12px; border:1px solid rgb(var(--color-border));
+  border-radius:16px; background:rgb(var(--color-surface-2) / .42); color:rgb(var(--color-ink));
+  transition:transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.settings-font-option:active { transform:scale(.985); }
+.settings-font-option.is-active { border-color:rgb(var(--color-accent) / .72); background:rgb(var(--color-accent) / .10); }
+.settings-font-preview { width:42px; flex:0 0 42px; text-align:center; font-size:27px; line-height:1; }
+.settings-font-option[data-font-preview="jojoba"] .settings-font-preview { font-family:"Jojoba", cursive; }
+.settings-font-option[data-font-preview="pretty-neat"] .settings-font-preview { font-family:"Pretty Neat", cursive; }
+.settings-font-copy { min-width:0; flex:1; }
+.settings-font-copy strong { display:block; font-size:13px; font-weight:800; }
+.settings-font-copy small { display:block; margin-top:3px; color:rgb(var(--color-muted)); font-size:10px; }
+.settings-font-check { width:20px; text-align:center; color:rgb(var(--color-accent)); font-size:16px; font-weight:900; }
+
+
+/* Task edit sheet */
+.task-edit-sheet { display:flex; flex-direction:column; gap:8px; }
+.task-edit-label { color:rgb(var(--color-muted)); font-size:11px; font-weight:800; }
+.task-edit-icon-label { margin-top:10px; }
+.task-edit-input {
+  width:100%; min-height:52px; padding:0 16px;
+  border:1px solid rgb(var(--color-border) / .7) !important;
+  border-radius:20px !important;
+  background:rgb(var(--color-surface-2) / .72) !important;
+  color:rgb(var(--color-ink)); font-size:15px; font-weight:650; outline:none !important;
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / .18), 0 4px 16px rgb(var(--color-ink) / .035) !important;
+  transition:border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.task-edit-input:focus {
+  border-color:rgb(var(--color-brand) / .55) !important;
+  background:rgb(var(--color-surface)) !important;
+  box-shadow:0 0 0 4px rgb(var(--color-brand) / .09), inset 0 1px 0 rgb(255 255 255 / .2) !important;
+}
+.task-edit-icon-grid {
+  display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:7px;
+  padding:9px; border-radius:20px; background:rgb(var(--color-surface-2) / .7);
+}
+.task-edit-icon-button {
+  display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1;
+  border-radius:14px; color:rgb(var(--color-muted)); transition:transform .12s ease, background-color .12s ease, color .12s ease;
+}
+.task-edit-icon-button:active { transform:scale(.92); }
+.task-edit-actions { display:flex; gap:9px; margin-top:12px; }
+.task-edit-cancel, .task-edit-save { min-height:46px; border-radius:17px; font-size:12px; font-weight:800; transition:transform .12s ease, opacity .12s ease; }
+.task-edit-cancel { flex:1; background:rgb(var(--color-surface-2)); color:rgb(var(--color-muted)); }
+.task-edit-save { flex:1.35; background:rgb(var(--color-brand)); color:#fff; padding:0 15px; }
+.task-edit-save:disabled { opacity:.45; }
+.task-edit-cancel:active, .task-edit-save:active { transform:scale(.98); }
+
+/* Softer habit insertion fields */
+.habit-create-name-input { border-radius:20px !important; min-height:54px; }
+.habit-create-quantity { border-radius:26px; padding:15px; }
+.habit-create-quantity input { border-radius:19px; min-height:50px; }

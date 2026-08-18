@@ -6,15 +6,13 @@ interface Props {
   onChange: (color: string) => void;
 }
 
-/**
- * Small circular swatches that wrap across rows, rather than a few big
- * squares — this leaves room for a much bigger palette (see utils/palette)
- * while keeping every swatch a proper 44px tap target underneath.
- */
+const LABELS = ["Red", "Orange", "Yellow", "Green", "Blue", "Purple", "White", "Sage green", "Grey"];
+
+/** Keeps the original habit colors and replaces the old Pink option with three neutral options. */
 export function ColorPicker({ value, onChange }: Props) {
   return (
     <div className="habit-color-palette" role="radiogroup" aria-label="Habit color">
-      {PALETTE.map((color) => {
+      {PALETTE.map((color, index) => {
         const selected = color === value;
         return (
           <button
@@ -22,21 +20,13 @@ export function ColorPicker({ value, onChange }: Props) {
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={color}
+            aria-label={LABELS[index]}
+            title={LABELS[index]}
             onClick={() => onChange(color)}
-            className="habit-color-swatch tap-target flex items-center justify-center rounded-full transition-transform duration-100 active:scale-90"
+            className="habit-color-swatch tap-target"
+            style={{ backgroundColor: color }}
           >
-            <span
-              className="flex items-center justify-center rounded-full transition-all duration-150"
-              style={{
-                backgroundColor: color,
-                width: selected ? 28 : 22,
-                height: selected ? 28 : 22,
-                boxShadow: selected ? `0 0 0 2px rgb(var(--color-surface)), 0 0 0 3px ${color}` : "none"
-              }}
-            >
-              {selected && <Check size={12} color="#fff" strokeWidth={3.5} />}
-            </span>
+            {selected && <Check size={18} color={color === "#FFFFFF" ? "#4B5563" : "#fff"} strokeWidth={3} />}
           </button>
         );
       })}

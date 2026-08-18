@@ -1,31 +1,13 @@
 export const PALETTE = [
-  // https://coolors.co/palette/5f0f40-9a031e-fb8b24-e36414-0f4c5c
-  "#5F0F40", // plum
-  "#9A031E", // dark red
-  "#FB8B24", // orange
-  "#E36414", // burnt orange
-  "#0F4C5C", // dark teal
-
-  // https://coolors.co/palette/03071e-370617-6a040f-9d0208-d00000-dc2f02-e85d04-f48c06-faa307-ffba08
-  "#03071E", // near-black navy
-  "#370617", // dark maroon
-  "#6A040F", // oxblood
-  "#9D0208", // red
-  "#D00000", // bright red
-  "#DC2F02", // red-orange
-  "#E85D04", // orange
-  "#F48C06", // amber orange
-  "#FAA307", // gold
-  "#FFBA08", // yellow-orange
-
-  // https://coolors.co/palette/31054e-7e35af-b84cff-d9a7ff-72259b-4b1765-37055e
-  "#31054E", // deep violet
-  "#7E35AF", // purple
-  "#B84CFF", // bright violet
-  "#D9A7FF", // light lavender
-  "#72259B", // grape
-  "#4B1765", // dark purple
-  "#37055E"  // midnight violet
+  "#EF4444", // Red
+  "#F97316", // Orange
+  "#EAB308", // Yellow
+  "#22C55E", // Green
+  "#3B82F6", // Blue
+  "#8B5CF6", // Purple
+  "#FFFFFF", // White — replaces Pink
+  "#A3B18A", // Sage green — replaces Pink
+  "#9CA3AF"  // Grey — replaces Pink
 ] as const;
 
 export function paletteDefault(): string {

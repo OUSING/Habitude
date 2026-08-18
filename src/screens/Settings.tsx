@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Chrome, Cloud, CloudDownload, Download, FileDown, FileUp, LogOut, UserCircle2 } from "lucide-react";
 import { exportHabitsCsv, exportTodosCsv, importCsv } from "../services/csvBackup";
 import { backupToDrive, restoreFromDrive, runAutoSyncNow } from "../services/driveBackup";
-import { getAutoSyncEnabled, getLastBackupAt, setAutoSyncEnabled } from "../services/settings";
+import { getAutoSyncEnabled, getLastBackupAt, setAutoSyncEnabled, type FontPreference } from "../services/settings";
 import { useAutoSyncState } from "../hooks/useAutoSync";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 
@@ -10,9 +10,11 @@ interface Props {
   session: { email: string; provider: "google" } | null;
   onSignIn: () => Promise<any>;
   onSignOut: () => Promise<void>;
+  font: FontPreference;
+  onFontChange: (font: FontPreference) => void;
 }
 
-export function Settings({ session, onSignIn, onSignOut }: Props) {
+export function Settings({ session, onSignIn, onSignOut, font, onFontChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<"habits" | "tasks" | "import" | "signin" | "signout" | "drive" | "restore" | "autoSyncToggle" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -182,6 +184,36 @@ export function Settings({ session, onSignIn, onSignOut }: Props) {
             )}
           </div>
           <p className="settings-hint">Connect your Google account to synchronize your Habitude data with Google Drive.</p>
+        </section>
+
+        <section className="settings-card settings-font-card">
+          <div className="settings-section-title">Font</div>
+          <div className="settings-font-options" role="radiogroup" aria-label="App font">
+            {([
+              ["jojoba", "Jojoba", "Friendly handwritten"],
+              ["pretty-neat", "Pretty Neat", "Clean handwritten"],
+            ] as const).map(([value, label, description]) => {
+              const active = font === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={`settings-font-option ${active ? "is-active" : ""}`}
+                  data-font-preview={value}
+                  onClick={() => onFontChange(value)}
+                >
+                  <span className="settings-font-preview">Aa</span>
+                  <span className="settings-font-copy">
+                    <strong>{label}</strong>
+                    <small>{description}</small>
+                  </span>
+                  <span className="settings-font-check">{active ? "✓" : ""}</span>
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         <section className="settings-card">

@@ -33,6 +33,10 @@ export async function createSubTodo(parentId: number, text: string): Promise<Tod
 }
 
 /** Flips a to-do's completion and returns the new state. */
+export async function updateTodo(id: number, changes: Partial<Pick<Todo, "text" | "icon">>): Promise<void> {
+  await db.todos.update(id, changes);
+}
+
 export async function toggleTodo(id: number): Promise<boolean> {
   const existing = await db.todos.get(id);
   if (!existing) return false;

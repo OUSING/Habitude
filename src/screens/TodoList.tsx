@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ChevronDown, ChevronRight, ListChecks, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ListChecks, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useSubTodos, useTodos } from "../hooks/useTodos";
-import { clearCompletedTodos, createSubTodo, createTodo, deleteTodo, toggleTodo } from "../services/todoService";
+import { clearCompletedTodos, createSubTodo, createTodo, deleteTodo, toggleTodo, updateTodo } from "../services/todoService";
 import { ICON_KEYS, defaultIcon, getIcon } from "../utils/icons";
 import { CheckBurst } from "../components/CheckBurst";
 import { SwipeToDelete } from "../components/ui/SwipeToDelete";
@@ -10,6 +10,7 @@ import { playCheckSound, playUncheckSound } from "../utils/sound";
 import { getShowCompletedTodos, setShowCompletedTodos } from "../services/settings";
 import type { Todo } from "../types/todo";
 import { fireCompletionCelebration } from "../utils/completionCelebration";
+import { Modal } from "../components/ui/Modal";
 
 // Tasks-screen accent — follows the active app theme (same brand color used
 // for the date highlight and everywhere else), so it only actually reads as
@@ -334,6 +335,22 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
   const subProgress = hasSubs ? Math.round((doneSteps / visibleSubTodos.length) * 100) : 0;
   const TaskIcon = getIcon(todo.icon);
   const confirm = useConfirm();
+  const [editOpen, setEditOpen] = useState(false);
+  const [editText, setEditText] = useState(todo.text);
+  const [editIcon, setEditIcon] = useState(todo.icon || defaultIcon());
+
+  function openEdit() {
+    setEditText(todo.text);
+    setEditIcon(todo.icon || defaultIcon());
+    setEditOpen(true);
+  }
+
+  async function handleEditSave() {
+    const trimmed = editText.trim();
+    if (!todo.id || !trimmed) return;
+    await updateTodo(todo.id, { text: trimmed, icon: editIcon });
+    setEditOpen(false);
+  }
 
   async function handleToggle() {
     if (!todo.id) return;
@@ -366,9 +383,16 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
   return (
     <li>
       <SwipeToDelete
+        onSwipeLeft={{
+          onTrigger: openEdit,
+          icon: <Pencil size={15} className="text-white" />,
+          bgClassName: "bg-brand",
+          requireConfirm: false
+        }}
         onSwipeRight={{
           onTrigger: handleDelete,
           icon: <Trash2 size={15} className="text-white" />,
+          confirmTitle: "Delete task?",
           confirmMessage: `Delete "${todo.text}"?`
         }}
         className="mb-2"
@@ -502,6 +526,47 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
           )}
         </div>
       </SwipeToDelete>
+
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit task">
+        <div className="task-edit-sheet">
+          <label htmlFor={`edit-task-${todo.id}`} className="task-edit-label">Task name</label>
+          <input
+            id={`edit-task-${todo.id}`}
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            maxLength={80}
+            autoFocus
+            className="task-edit-input"
+            placeholder="Task name"
+          />
+
+          <div className="task-edit-label task-edit-icon-label">Icon</div>
+          <div className="task-edit-icon-grid">
+            {ICON_KEYS.map((key) => {
+              const Ic = getIcon(key);
+              const selected = key === editIcon;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setEditIcon(key)}
+                  aria-label={`Use ${key} icon`}
+                  aria-pressed={selected}
+                  className="task-edit-icon-button"
+                  style={selected ? { backgroundColor: TODO_ACCENT_SOFT, color: TODO_ACCENT } : undefined}
+                >
+                  <Ic size={19} strokeWidth={2} />
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="task-edit-actions">
+            <button type="button" onClick={() => setEditOpen(false)} className="task-edit-cancel">Cancel</button>
+            <button type="button" onClick={() => void handleEditSave()} disabled={!editText.trim()} className="task-edit-save">Save changes</button>
+          </div>
+        </div>
+      </Modal>
     </li>
   );
 }
