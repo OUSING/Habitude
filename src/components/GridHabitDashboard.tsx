@@ -85,7 +85,7 @@ function GridHabitRow({ habit, dates, selectedDate, onEdit }: { habit: Habit; da
     if (!habit.id) return;
     const ok = await confirm({
       title: "Delete Habit",
-      message: `Delete "${habit.name}"? This can't be undone.`,
+      message: `Delete "${habit.name}"?\n\nThis can't be undone.`,
       confirmText: "Delete",
       cancelText: "Cancel",
       type: "danger"

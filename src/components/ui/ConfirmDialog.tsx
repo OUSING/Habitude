@@ -42,11 +42,22 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     <ConfirmContext.Provider value={confirm}>
       {children}
       {dialogState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onTouchCancel={(e) => e.stopPropagation()}
+        >
           {/* Backdrop with blur and fade animation */}
           <div
             className="absolute inset-0 animate-fade-in bg-black/60 backdrop-blur-[4px]"
-            onClick={() => handleClose(false)}
+            onPointerDown={(e) => {
+              if (e.target === e.currentTarget) handleClose(false);
+            }}
           />
           
           {/* Dialog Box with scale-in animation */}
@@ -83,7 +94,8 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             {/* Buttons */}
             <div className="mt-6 flex flex-col gap-2">
               <button
-                onClick={() => handleClose(true)}
+                onClick={(e) => { e.stopPropagation(); handleClose(true); }}
+                onPointerDown={(e) => e.stopPropagation()}
                 className={[
                   "tap-target w-full rounded-xl py-3 text-[14px] font-semibold text-white transition-colors shadow-sm",
                   dialogState.options.type === "danger"
@@ -96,7 +108,8 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 {dialogState.options.confirmText ?? "Confirm"}
               </button>
               <button
-                onClick={() => handleClose(false)}
+                onClick={(e) => { e.stopPropagation(); handleClose(false); }}
+                onPointerDown={(e) => e.stopPropagation()}
                 className="tap-target w-full rounded-xl bg-surface-2 py-3 text-[14px] font-semibold text-ink transition-colors hover:bg-border active:bg-border-dark"
               >
                 {dialogState.options.cancelText ?? "Cancel"}

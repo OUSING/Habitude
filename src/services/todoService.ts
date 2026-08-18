@@ -33,7 +33,7 @@ export async function createSubTodo(parentId: number, text: string): Promise<Tod
 }
 
 /** Flips a to-do's completion and returns the new state. */
-export async function updateTodo(id: number, changes: Partial<Pick<Todo, "text" | "icon">>): Promise<void> {
+export async function updateTodo(id: number, changes: Partial<Pick<Todo, "text" | "icon" | "frequency" | "customRepeat" | "dueDate" | "dueTime">>): Promise<void> {
   await db.todos.update(id, changes);
 }
 

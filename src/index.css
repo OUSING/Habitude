@@ -2764,7 +2764,10 @@ html[data-font="pretty-neat"] .font-display { font-family: inherit; }
 
 
 /* Task edit sheet */
-.task-edit-sheet { display:flex; flex-direction:column; gap:8px; }
+.task-edit-sheet { display:flex; flex-direction:column; gap:8px; max-height:min(76vh,620px); overflow-y:auto; overscroll-behavior:contain; padding-right:2px; }
+.task-composer-time { display:flex; align-items:center; gap:2px; color:rgb(var(--color-muted)); font-size:9px; flex-shrink:0; }
+.task-composer-time input { width:58px; border:0; outline:0; background:transparent; color:rgb(var(--color-muted)); font-size:9px; }
+.task-composer-time input::-webkit-calendar-picker-indicator { opacity:.55; }
 .task-edit-label { color:rgb(var(--color-muted)); font-size:11px; font-weight:800; }
 .task-edit-icon-label { margin-top:10px; }
 .task-edit-input {
@@ -2782,14 +2785,18 @@ html[data-font="pretty-neat"] .font-display { font-family: inherit; }
   box-shadow:0 0 0 4px rgb(var(--color-brand) / .09), inset 0 1px 0 rgb(255 255 255 / .2) !important;
 }
 .task-edit-icon-grid {
-  display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:7px;
-  padding:9px; border-radius:20px; background:rgb(var(--color-surface-2) / .7);
+  display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:5px;
+  padding:7px; border-radius:18px; background:rgb(var(--color-surface-2) / .7);
 }
 .task-edit-icon-button {
   display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1;
-  border-radius:14px; color:rgb(var(--color-muted)); transition:transform .12s ease, background-color .12s ease, color .12s ease;
+  min-height:32px; border-radius:10px; color:rgb(var(--color-muted)); transition:transform .12s ease, background-color .12s ease, color .12s ease;
 }
 .task-edit-icon-button:active { transform:scale(.92); }
+.task-edit-time-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:8px; }
+.task-edit-time-field { display:flex; flex-direction:column; gap:5px; color:rgb(var(--color-muted)); font-size:10px; font-weight:800; }
+.task-edit-time-field input { width:100%; min-height:42px; border:1px solid rgb(var(--color-border) / .65); border-radius:14px; background:rgb(var(--color-surface-2) / .55); padding:0 10px; color:rgb(var(--color-ink)); outline:none; }
+.task-edit-time-field input:focus { border-color:rgb(var(--color-brand) / .55); box-shadow:0 0 0 3px rgb(var(--color-brand) / .08); }
 .task-edit-actions { display:flex; gap:9px; margin-top:12px; }
 .task-edit-cancel, .task-edit-save { min-height:46px; border-radius:17px; font-size:12px; font-weight:800; transition:transform .12s ease, opacity .12s ease; }
 .task-edit-cancel { flex:1; background:rgb(var(--color-surface-2)); color:rgb(var(--color-muted)); }
@@ -2801,3 +2808,23 @@ html[data-font="pretty-neat"] .font-display { font-family: inherit; }
 .habit-create-name-input { border-radius:20px !important; min-height:54px; }
 .habit-create-quantity { border-radius:26px; padding:15px; }
 .habit-create-quantity input { border-radius:19px; min-height:50px; }
+
+
+/* Compact task scheduling controls. */
+.task-composer-select,
+.task-composer-due-time {
+  height: 28px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: rgb(var(--color-muted));
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+.task-composer-select { max-width: 72px; }
+.task-composer-due-time { width: 68px; }
+.task-composer-select:focus,
+.task-composer-due-time:focus {
+  color: rgb(var(--color-ink));
+}

@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ChevronDown, ChevronRight, ListChecks, Pencil, Plus, Trash2, X } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, Clock3, ListChecks, Pencil, Plus, Repeat2, Trash2, X } from "lucide-react";
 import { useSubTodos, useTodos } from "../hooks/useTodos";
 import { clearCompletedTodos, createSubTodo, createTodo, deleteTodo, toggleTodo, updateTodo } from "../services/todoService";
 import { ICON_KEYS, defaultIcon, getIcon } from "../utils/icons";
 import { CheckBurst } from "../components/CheckBurst";
 import { SwipeToDelete } from "../components/ui/SwipeToDelete";
-import { useConfirm } from "../components/ui/ConfirmDialog";
 import { playCheckSound, playUncheckSound } from "../utils/sound";
 import { getShowCompletedTodos, setShowCompletedTodos } from "../services/settings";
-import type { Todo } from "../types/todo";
+import type { Todo, TodoCustomRepeat, TodoCustomRepeatUnit } from "../types/todo";
 import { fireCompletionCelebration } from "../utils/completionCelebration";
 import { Modal } from "../components/ui/Modal";
+import { useConfirm } from "../components/ui/ConfirmDialog";
 
 // Tasks-screen accent — follows the active app theme (same brand color used
 // for the date highlight and everywhere else), so it only actually reads as
@@ -189,6 +189,7 @@ function CheckCircle({
 
 function SubTodoRow({ todo }: { todo: Todo }) {
   const [burstKey, setBurstKey] = useState(0);
+  const confirm = useConfirm();
 
   async function handleToggle() {
     if (!todo.id) return;
@@ -204,7 +205,14 @@ function SubTodoRow({ todo }: { todo: Todo }) {
 
   async function handleDelete() {
     if (!todo.id) return;
-    await deleteTodo(todo.id);
+    const ok = await confirm({
+      title: "Delete Task",
+      message: `Delete "${todo.text}"?\n\nThis can't be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "danger"
+    });
+    if (ok) await deleteTodo(todo.id);
   }
 
   return (
@@ -325,6 +333,144 @@ function AddSubTodoRow({ onAdd }: { onAdd: (text: string) => void }) {
   );
 }
 
+
+function formatRepeat(frequency: Todo["frequency"], custom?: TodoCustomRepeat): string {
+  if (!frequency || frequency === "once") return "Doesn't repeat";
+  if (frequency === "daily") return "Daily";
+  if (frequency === "weekdays") return "Weekdays";
+  if (frequency === "weekly") return "Weekly";
+  if (!custom) return "Custom";
+  const unit = custom.unit + (custom.interval === 1 ? "" : "s");
+  return `Every ${custom.interval} ${unit}`;
+}
+
+function ScheduleEditor({
+  frequency,
+  setFrequency,
+  customRepeat,
+  setCustomRepeat,
+  dueDate,
+  setDueDate,
+  dueTime,
+  setDueTime,
+}: {
+  frequency: Todo["frequency"];
+  setFrequency: (value: Todo["frequency"]) => void;
+  customRepeat: TodoCustomRepeat;
+  setCustomRepeat: (value: TodoCustomRepeat) => void;
+  dueDate: string;
+  setDueDate: (value: string) => void;
+  dueTime: string;
+  setDueTime: (value: string) => void;
+}) {
+  const [customOpen, setCustomOpen] = useState(frequency === "custom");
+  const repeatOptions: Array<{ value: Todo["frequency"]; label: string }> = [
+    { value: "once", label: "Doesn't repeat" },
+    { value: "daily", label: "Daily" },
+    { value: "weekdays", label: "Weekdays" },
+    { value: "weekly", label: "Weekly" },
+    { value: "custom", label: "Custom…" },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-border/60 bg-surface p-1.5">
+        <button type="button" onClick={() => setCustomOpen((v) => !v)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-surface-2/70">
+          <Repeat2 size={18} className="text-muted" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-muted">Repeat</p>
+            <p className="truncate text-[14px] font-medium text-ink">{formatRepeat(frequency, customRepeat)}</p>
+          </div>
+          <ChevronDown size={16} className={["text-muted transition-transform", customOpen ? "rotate-180" : ""].join(" ")} />
+        </button>
+        {customOpen && (
+          <div className="mt-1 space-y-1 border-t border-border/50 pt-1">
+            {repeatOptions.map((option) => (
+              <button
+                key={String(option.value)}
+                type="button"
+                onClick={() => {
+                  setFrequency(option.value);
+                  setCustomOpen(option.value === "custom");
+                }}
+                className={["flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[13px]", frequency === option.value ? "bg-brand/10 font-semibold text-ink" : "text-ink hover:bg-surface-2"].join(" ")}
+              >
+                <span>{option.label}</span>
+                {frequency === option.value && <span className="text-brand">✓</span>}
+              </button>
+            ))}
+            {frequency === "custom" && (
+              <div className="mx-1 mt-2 rounded-xl bg-surface-2 p-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] text-muted">Every</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={999}
+                    value={customRepeat.interval}
+                    onChange={(e) => setCustomRepeat({ ...customRepeat, interval: Math.max(1, Number(e.target.value) || 1) })}
+                    className="w-16 rounded-lg border border-border bg-surface px-2 py-2 text-center text-[13px] text-ink outline-none"
+                  />
+                  <select
+                    value={customRepeat.unit}
+                    onChange={(e) => setCustomRepeat({ ...customRepeat, unit: e.target.value as TodoCustomRepeatUnit })}
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-2 text-[13px] text-ink outline-none"
+                  >
+                    <option value="day">day(s)</option>
+                    <option value="week">week(s)</option>
+                    <option value="month">month(s)</option>
+                    <option value="year">year(s)</option>
+                  </select>
+                </div>
+                {customRepeat.unit === "week" && (
+                  <div className="mt-3">
+                    <p className="mb-2 text-[11px] font-semibold text-muted">Repeat on</p>
+                    <div className="grid grid-cols-7 gap-1">
+                      {[[1,"M"],[2,"T"],[3,"W"],[4,"T"],[5,"F"],[6,"S"],[0,"S"]].map(([day, label]) => {
+                        const n = Number(day);
+                        const active = customRepeat.weekdays?.includes(n) ?? false;
+                        return (
+                          <button
+                            key={String(day)}
+                            type="button"
+                            onClick={() => {
+                              const current = customRepeat.weekdays ?? [new Date().getDay()];
+                              const next = current.includes(n) ? current.filter((d) => d !== n) : [...current, n];
+                              setCustomRepeat({ ...customRepeat, weekdays: next.length ? next : [n] });
+                            }}
+                            className="aspect-square rounded-full text-[11px] font-semibold"
+                            style={active ? { backgroundColor: TODO_ACCENT, color: "#fff" } : { backgroundColor: "rgb(var(--color-surface))", color: "rgb(var(--color-muted))" }}
+                          >{label}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-border/60 bg-surface p-1.5">
+        <label className="flex items-center gap-3 rounded-xl px-3 py-3">
+          <CalendarDays size={18} className="text-muted" />
+          <span className="min-w-0 flex-1 text-[13px] font-medium text-ink">Due date</span>
+          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="rounded-lg bg-surface-2 px-2 py-1.5 text-[12px] text-ink outline-none" />
+        </label>
+        <label className="flex items-center gap-3 rounded-xl px-3 py-3">
+          <Clock3 size={18} className="text-muted" />
+          <span className="min-w-0 flex-1 text-[13px] font-medium text-ink">Due time</span>
+          <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="rounded-lg bg-surface-2 px-2 py-1.5 text-[12px] text-ink outline-none" />
+        </label>
+        {(dueDate || dueTime) && (
+          <button type="button" onClick={() => { setDueDate(""); setDueTime(""); }} className="w-full rounded-xl px-3 py-2 text-left text-[12px] font-semibold text-red-500 hover:bg-red-500/10">Remove due date/time</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
   const [burstKey, setBurstKey] = useState(0);
   const subTodos = useSubTodos(todo.id);
@@ -334,21 +480,36 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
   const hasSubs = visibleSubTodos.length > 0;
   const subProgress = hasSubs ? Math.round((doneSteps / visibleSubTodos.length) * 100) : 0;
   const TaskIcon = getIcon(todo.icon);
-  const confirm = useConfirm();
   const [editOpen, setEditOpen] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const [editIcon, setEditIcon] = useState(todo.icon || defaultIcon());
+  const [editFrequency, setEditFrequency] = useState<Todo["frequency"]>(todo.frequency ?? "once");
+  const [editCustomRepeat, setEditCustomRepeat] = useState<TodoCustomRepeat>(todo.customRepeat ?? { interval: 1, unit: "week", weekdays: [new Date().getDay()] });
+  const [editDueDate, setEditDueDate] = useState(todo.dueDate ?? "");
+  const [editDueTime, setEditDueTime] = useState(todo.dueTime ?? "");
+  const confirm = useConfirm();
 
   function openEdit() {
     setEditText(todo.text);
     setEditIcon(todo.icon || defaultIcon());
+    setEditFrequency(todo.frequency ?? "once");
+    setEditCustomRepeat(todo.customRepeat ?? { interval: 1, unit: "week", weekdays: [new Date().getDay()] });
+    setEditDueDate(todo.dueDate ?? "");
+    setEditDueTime(todo.dueTime ?? "");
     setEditOpen(true);
   }
 
   async function handleEditSave() {
     const trimmed = editText.trim();
     if (!todo.id || !trimmed) return;
-    await updateTodo(todo.id, { text: trimmed, icon: editIcon });
+    await updateTodo(todo.id, {
+      text: trimmed,
+      icon: editIcon,
+      frequency: editFrequency,
+      customRepeat: editFrequency === "custom" ? editCustomRepeat : undefined,
+      dueDate: editDueDate || undefined,
+      dueTime: editDueTime || undefined
+    });
     setEditOpen(false);
   }
 
@@ -366,19 +527,16 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
 
   async function handleDelete() {
     if (!todo.id) return;
-    await deleteTodo(todo.id);
-  }
-
-  async function handleDeleteButton() {
     const ok = await confirm({
-      title: "Delete Confirmation",
-      message: `Delete "${todo.text}"?`,
+      title: "Delete Task",
+      message: `Delete "${todo.text}"?\n\nThis can't be undone.`,
       confirmText: "Delete",
       cancelText: "Cancel",
       type: "danger"
     });
-    if (ok) await handleDelete();
+    if (ok) await deleteTodo(todo.id);
   }
+
 
   return (
     <li>
@@ -392,8 +550,7 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
         onSwipeRight={{
           onTrigger: handleDelete,
           icon: <Trash2 size={15} className="text-white" />,
-          confirmTitle: "Delete task?",
-          confirmMessage: `Delete "${todo.text}"?`
+          requireConfirm: false
         }}
         className="mb-2"
       >
@@ -429,6 +586,14 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
               >
                 {todo.text}
               </p>
+              {todo.frequency && todo.frequency !== "once" && (
+                <p className="mt-0.5 text-[9.5px] leading-tight text-muted">{formatRepeat(todo.frequency, todo.customRepeat)}</p>
+              )}
+              {(todo.dueDate || todo.dueTime) && (
+                <p className="mt-0.5 text-[9.5px] leading-tight text-muted">
+                  {todo.dueDate ? `Due ${todo.dueDate}` : ""}{todo.dueDate && todo.dueTime ? " · " : ""}{todo.dueTime ?? ""}
+                </p>
+              )}
               {hasSubs ? (
                 <div className="flex w-full items-center gap-1.5">
                   <div className="h-1 w-full max-w-[110px] shrink-0 overflow-hidden rounded-full bg-surface-2">
@@ -468,7 +633,7 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                void handleDeleteButton();
+                void handleDelete();
               }}
               aria-label="Delete task"
               className="tap-target flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted/70 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 active:scale-90 sm:h-5 sm:w-5 sm:opacity-40"
@@ -555,11 +720,22 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
                   className="task-edit-icon-button"
                   style={selected ? { backgroundColor: TODO_ACCENT_SOFT, color: TODO_ACCENT } : undefined}
                 >
-                  <Ic size={19} strokeWidth={2} />
+                  <Ic size={16} strokeWidth={2} />
                 </button>
               );
             })}
           </div>
+
+          <ScheduleEditor
+            frequency={editFrequency}
+            setFrequency={setEditFrequency}
+            customRepeat={editCustomRepeat}
+            setCustomRepeat={setEditCustomRepeat}
+            dueDate={editDueDate}
+            setDueDate={setEditDueDate}
+            dueTime={editDueTime}
+            setDueTime={setEditDueTime}
+          />
 
           <div className="task-edit-actions">
             <button type="button" onClick={() => setEditOpen(false)} className="task-edit-cancel">Cancel</button>
@@ -586,6 +762,11 @@ export function TodoList() {
 
   const [text, setText] = useState("");
   const [icon, setIcon] = useState(defaultIcon());
+  const [frequency, setFrequency] = useState<Todo["frequency"]>("once");
+  const [customRepeat, setCustomRepeat] = useState<TodoCustomRepeat>({ interval: 1, unit: "week", weekdays: [new Date().getDay()] });
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [showCompleted, setShowCompleted] = useState(true);
@@ -610,9 +791,14 @@ export function TodoList() {
     e.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
-    await createTodo({ text: trimmed, icon });
+    await createTodo({ text: trimmed, icon, frequency, customRepeat: frequency === "custom" ? customRepeat : undefined, dueDate: dueDate || undefined, dueTime: dueTime || undefined });
     setText("");
     setIcon(defaultIcon());
+    setFrequency("once");
+    setCustomRepeat({ interval: 1, unit: "week", weekdays: [new Date().getDay()] });
+    setDueDate("");
+    setDueTime("");
+    setScheduleOpen(false);
     setPickerOpen(false);
     inputRef.current?.focus();
   }
@@ -656,7 +842,7 @@ export function TodoList() {
             aria-label="Choose an icon"
             className="tap-target flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:text-ink"
           >
-            <SelectedIcon size={15} strokeWidth={2} style={{ color: TODO_ACCENT }} />
+            <SelectedIcon size={13} strokeWidth={2} style={{ color: TODO_ACCENT }} />
           </button>
           <input
             ref={inputRef}
@@ -666,6 +852,23 @@ export function TodoList() {
             maxLength={80}
             className="tap-target min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-muted"
           />
+          <button
+            type="button"
+            onClick={() => setScheduleOpen(true)}
+            aria-label="Set frequency and due date"
+            className="tap-target hidden shrink-0 items-center gap-1 rounded-lg bg-surface-2 px-2.5 text-[11px] font-semibold text-muted sm:flex"
+          >
+            <CalendarDays size={13} />
+            {dueDate || dueTime || (frequency && frequency !== "once") ? "Scheduled" : "Schedule"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setScheduleOpen(true)}
+            aria-label="Set frequency and due date"
+            className="tap-target flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted sm:hidden"
+          >
+            <CalendarDays size={15} />
+          </button>
           <button
             type="submit"
             disabled={!text.trim()}
@@ -690,10 +893,10 @@ export function TodoList() {
                     setIcon(key);
                     setPickerOpen(false);
                   }}
-                  className="tap-target mx-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-transform active:scale-90"
+                  className="tap-target mx-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform active:scale-90"
                   style={selected ? { backgroundColor: TODO_ACCENT_SOFT, color: TODO_ACCENT } : undefined}
                 >
-                  <Ic size={20} strokeWidth={2} className={selected ? "" : "text-muted"} />
+                  <Ic size={16} strokeWidth={2} className={selected ? "" : "text-muted"} />
                 </button>
               );
             })}
@@ -701,12 +904,28 @@ export function TodoList() {
               type="button"
               onClick={() => setPickerOpen(false)}
               aria-label="Close icon picker"
-              className="tap-target mx-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted"
+              className="tap-target mx-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted"
             >
-              <X size={20} />
+              <X size={16} />
             </button>
           </div>
         )}
+      <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} title="Schedule task">
+        <div className="space-y-4">
+          <ScheduleEditor
+            frequency={frequency}
+            setFrequency={setFrequency}
+            customRepeat={customRepeat}
+            setCustomRepeat={setCustomRepeat}
+            dueDate={dueDate}
+            setDueDate={setDueDate}
+            dueTime={dueTime}
+            setDueTime={setDueTime}
+          />
+          <button type="button" onClick={() => setScheduleOpen(false)} className="w-full rounded-xl bg-ink py-3 text-[14px] font-semibold text-white">Done</button>
+        </div>
+      </Modal>
+
       </header>
 
       <main className="scroll-area flex-1 px-4 py-2">
@@ -720,7 +939,7 @@ export function TodoList() {
             </div>
             <p className="font-display text-lg font-semibold text-ink">Nothing to do</p>
             <p className="max-w-[16rem] text-sm text-muted">
-              Add a one-off task above — for anything that isn't a recurring habit.
+              Add a task above. You can make it one-off or set a repeat schedule.
             </p>
           </div>
         ) : (

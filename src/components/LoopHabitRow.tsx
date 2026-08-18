@@ -7,6 +7,7 @@ import { archiveHabit, logMeasurement, toggleLog, toggleRest } from "../services
 import { formatFullDate, isHabitScheduledOn, monthDates, todayStr } from "../utils/date";
 import { playCheckSound, playUncheckSound } from "../utils/sound";
 import { SwipeToDelete } from "./ui/SwipeToDelete";
+import { useConfirm } from "./ui/ConfirmDialog";
 import { Modal } from "./ui/Modal";
 import { QuantityInput } from "./ui/QuantityInput";
 import { getIcon } from "../utils/icons";
@@ -25,6 +26,7 @@ interface Props {
  * can see (and fill in) a stretch of history at a glance.
  */
 export function LoopHabitRow({ habit, onEdit, selectedDate }: Props) {
+  const confirm = useConfirm();
   const logs = useLogsForHabit(habit.id);
   const dates = useMemo(() => monthDates(selectedDate), [selectedDate]);
   const doneDates = new Set(logs.filter((l) => l.completed).map((l) => l.date));
@@ -112,9 +114,16 @@ export function LoopHabitRow({ habit, onEdit, selectedDate }: Props) {
     else if (!nowCompleted && wasCompleted) playUncheckSound();
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!habit.id) return;
-    return archiveHabit(habit.id);
+    const ok = await confirm({
+      title: "Delete Habit",
+      message: `Delete "${habit.name}"?\n\nThis can't be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "danger"
+    });
+    if (ok) await archiveHabit(habit.id);
   }
 
   const Icon = getIcon(habit.icon);

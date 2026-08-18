@@ -20,6 +20,7 @@ import {
   setLastBackupAt,
   setThemePreference,
   setViewMode,
+  setPhoneActivitySynced,
   type ThemePreference,
   type ViewMode
 } from "./settings";
@@ -126,6 +127,12 @@ async function applyBackupPayload(data: BackupPayload): Promise<void> {
       if (data.todos?.length) await db.todos.bulkAdd(data.todos);
       if (data.dailyNotes?.length) await db.dailyNotes.bulkAdd(data.dailyNotes);
     });
+
+    // The desktop/web UI should only expose "Synced activity" after a real
+    // phone backup has been pulled. Local web-created runs must not unlock it.
+    if (data.activityLogs?.some((log) => log.source === "phone")) {
+      await setPhoneActivitySynced(true);
+    }
 
     if (data.settings) {
       await setThemePreference(data.settings.theme ?? "system");

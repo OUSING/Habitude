@@ -14,8 +14,6 @@ export interface SwipeAction {
   /** Shown in the native confirm dialog, e.g. `Delete "Read"?`. Unused
    *  when `requireConfirm` is false. */
   confirmMessage?: string;
-  /** Title shown in the confirmation dialog. */
-  confirmTitle?: string;
   /** Whether to ask for confirmation before firing the action. Defaults
    *  to true — set to false for reversible actions like "edit". */
   requireConfirm?: boolean;
@@ -76,18 +74,11 @@ export function SwipeToDelete({ children, className, onSwipeLeft, onSwipeRight }
     const requireConfirm = action.requireConfirm ?? true;
     let ok = true;
     if (requireConfirm) {
-      // On touch devices the browser may dispatch a synthetic click immediately
-      // after touchend. If the confirmation dialog is mounted synchronously,
-      // that click can land on its backdrop and cancel the dialog. Waiting one
-      // browser frame lets the original gesture finish before the dialog exists.
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      await new Promise<void>((resolve) => setTimeout(resolve, 80));
-
       ok = await confirm({
-        title: action.confirmTitle ?? "Delete habit?",
-        message: action.confirmMessage ?? "Are you sure you want to delete this habit?",
+        title: "Delete Confirmation",
+        message: `${action.confirmMessage ?? "Are you sure you want to delete this item?"}\n\nThis can't be undone.`,
         confirmText: "Delete",
-        cancelText: "Keep it",
+        cancelText: "Cancel",
         type: "danger"
       });
     }

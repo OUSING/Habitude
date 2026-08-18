@@ -7,6 +7,7 @@ import { archiveHabit, logMeasurement, toggleLog, toggleRest } from "../services
 import { getIcon } from "../utils/icons";
 import { playCheckSound, playUncheckSound } from "../utils/sound";
 import { SwipeToDelete } from "./ui/SwipeToDelete";
+import { useConfirm } from "./ui/ConfirmDialog";
 import { Modal } from "./ui/Modal";
 import { QuantityInput } from "./ui/QuantityInput";
 import { fireCompletionCelebration } from "../utils/completionCelebration";
@@ -31,6 +32,7 @@ export function HabitCard({ habit, date, onEdit }: Props) {
   // doesn't reset when a scheduled day is skipped, it just keeps counting.
   const totalChecked = doneDates.size;
   const Icon = getIcon(habit.icon);
+  const confirm = useConfirm();
   const measurement = habit.measurement;
   const todayLog = logs.find((l) => l.date === date);
 
@@ -134,9 +136,16 @@ export function HabitCard({ habit, date, onEdit }: Props) {
     handleAmountChange(amount + 1);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!habit.id) return;
-    return archiveHabit(habit.id);
+    const ok = await confirm({
+      title: "Delete Habit",
+      message: `Delete "${habit.name}"?\n\nThis can't be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "danger"
+    });
+    if (ok) await archiveHabit(habit.id);
   }
 
   return (
@@ -149,7 +158,8 @@ export function HabitCard({ habit, date, onEdit }: Props) {
       onSwipeRight={{
         onTrigger: handleDelete,
         icon: <Trash2 size={17} className="text-white" />,
-        confirmMessage: `Delete "${habit.name}"?`
+        confirmMessage: `Delete "${habit.name}"?`,
+        requireConfirm: true
       }}
     >
       <div
@@ -159,6 +169,16 @@ export function HabitCard({ habit, date, onEdit }: Props) {
           borderColor: `${habit.color}14`
         }}
       >
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); void handleDelete(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label={`Delete ${habit.name}`}
+          title={`Delete ${habit.name}`}
+          className="tap-target flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted/60 transition-colors hover:text-red-500 active:scale-90"
+        >
+          <Trash2 size={13} />
+        </button>
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <div
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"

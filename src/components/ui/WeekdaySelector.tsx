@@ -6,6 +6,7 @@ interface Props {
   /** Optional accent used for active days — falls back to the app's
    *  default brand color when omitted. */
   activeColor?: string;
+  activeTextColor?: string;
 }
 
 const LABELS: { day: Weekday; label: string }[] = [
@@ -18,7 +19,7 @@ const LABELS: { day: Weekday; label: string }[] = [
   { day: 0, label: "D" }
 ];
 
-export function WeekdaySelector({ value, onChange, activeColor }: Props) {
+export function WeekdaySelector({ value, onChange, activeColor, activeTextColor }: Props) {
   function toggle(day: Weekday) {
     onChange(value.includes(day) ? value.filter((d) => d !== day) : [...value, day].sort());
   }
@@ -37,7 +38,7 @@ export function WeekdaySelector({ value, onChange, activeColor }: Props) {
               "tap-target flex-1 rounded-full text-sm font-bold transition-colors duration-100",
               active ? "text-white" : "bg-surface-2 text-muted active:bg-border"
             ].join(" ")}
-            style={active ? { backgroundColor: activeColor || "rgb(var(--color-brand))" } : undefined}
+            style={active ? { backgroundColor: activeColor || "rgb(var(--color-brand))", color: activeTextColor || "#fff" } : undefined}
           >
             {label}
           </button>

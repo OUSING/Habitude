@@ -1,18 +1,26 @@
 import { useEffect, useState } from "react";
 import { db, type ActivityLog } from "../services/db";
 import { lastNDates, weekdayLetter } from "../utils/date";
+import { Capacitor } from "@capacitor/core";
+import { getPhoneActivitySynced } from "../services/settings";
 
 export function ActivityHistoryChart({ days = 7 }: { days?: number }) {
   const dates = lastNDates(days);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [phoneSynced, setPhoneSynced] = useState(Capacitor.isNativePlatform());
 
   useEffect(() => {
     let cancelled = false;
+    getPhoneActivitySynced().then((synced) => {
+      if (!cancelled) setPhoneSynced(Capacitor.isNativePlatform() || synced);
+    });
     db.activityLogs.toArray().then((items) => {
       if (!cancelled) setLogs(items.filter((item) => dates.includes(item.date)));
     });
     return () => { cancelled = true; };
   }, [dates.join(",")]);
+
+  if (!phoneSynced) return null;
 
   const stepsByDate = new Map<string, number>();
   const runsByDate = new Map<string, number>();

@@ -73,6 +73,7 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
   const targetNum = Number(target.replace(",", "."));
   const targetInvalid = isMeasurable && !(targetNum > 0);
   const unitInvalid = isMeasurable && unit.trim().length === 0;
+  const isWhiteColor = color.toUpperCase() === "#FFFFFF";
   const canSave =
     name.trim().length > 0 &&
     (frequencyType === "daily" || weeklyDays.length > 0) &&
@@ -170,7 +171,7 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
               const active = frequencyType === ft;
               return (
                 <button key={ft} type="button" onClick={() => setFrequencyType(ft)}
-                  className={active ? "is-active" : ""} style={active ? { backgroundColor: color } : undefined}>
+                  className={active ? "is-active" : ""} style={active ? { backgroundColor: color, color: isWhiteColor ? "#111827" : "#fff" } : undefined}>
                   {ft === "daily" ? "Every day" : "Specific days"}
                 </button>
               );
@@ -178,7 +179,7 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
           </div>
           {frequencyType === "weekly" && (
             <div className="habit-create-weekdays">
-              <WeekdaySelector value={weeklyDays} onChange={setWeeklyDays} activeColor={color} />
+              <WeekdaySelector value={weeklyDays} onChange={setWeeklyDays} activeColor={color} activeTextColor={isWhiteColor ? "#111827" : "#fff"} />
             </div>
           )}
         </section>
@@ -192,7 +193,7 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
               const active = isMeasurable === measurable;
               return (
                 <button key={String(measurable)} type="button" onClick={() => setIsMeasurable(measurable)}
-                  className={active ? "is-active" : ""} style={active ? { backgroundColor: color } : undefined}>
+                  className={active ? "is-active" : ""} style={active ? { backgroundColor: color, color: isWhiteColor ? "#111827" : "#fff" } : undefined}>
                   {measurable ? "Quantity" : "Simple check"}
                 </button>
               );
@@ -233,7 +234,7 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
         <div className="habit-editor-actions habit-create-actions">
           <Button variant="ghost" fullWidth onClick={onClose} disabled={saving}>Cancel</Button>
           <Button variant="primary" fullWidth disabled={!canSave || saving} onClick={handleSave}
-            style={canSave ? { backgroundColor: color } : undefined}>
+            style={canSave ? { backgroundColor: color, color: isWhiteColor ? "#111827" : "#fff" } : undefined}>
             {saving ? "Saving…" : isEditing ? "Save changes" : "Create habit"}
           </Button>
         </div>

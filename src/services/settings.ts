@@ -156,6 +156,18 @@ export async function setShowCompletedTodos(show: boolean): Promise<void> {
   await Preferences.set({ key: SHOW_COMPLETED_TODOS_KEY, value: String(show) });
 }
 
+
+const PHONE_ACTIVITY_SYNCED_KEY = "habit-tracker:phoneActivitySynced";
+
+export async function getPhoneActivitySynced(): Promise<boolean> {
+  const { value } = await Preferences.get({ key: PHONE_ACTIVITY_SYNCED_KEY });
+  return value === "true";
+}
+
+export async function setPhoneActivitySynced(synced: boolean): Promise<void> {
+  await Preferences.set({ key: PHONE_ACTIVITY_SYNCED_KEY, value: String(synced) });
+}
+
 /* --------------------------- Step tracking --------------------------- */
 
 const AUTO_STEPS_ENABLED_KEY = "habit-tracker:autoStepsEnabled";
