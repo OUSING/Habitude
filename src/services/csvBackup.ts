@@ -1,6 +1,3 @@
-import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
-import { Share } from "@capacitor/share";
 import { db } from "./db";
 import { buildCsv, parseCsvObjects } from "../utils/csv";
 import { paletteDefault } from "../utils/palette";
@@ -114,23 +111,8 @@ async function buildTodosCsv(): Promise<string> {
   return buildCsv(TODOS_HEADER, rows);
 }
 
-/** Writes the CSV to disk and opens the native share sheet (Android/iOS),
- *  or triggers a plain browser download (web). */
+/** Triggers a plain browser download of the CSV. */
 async function saveAndShareCsv(filename: string, csvText: string): Promise<void> {
-  if (Capacitor.isNativePlatform()) {
-    const written = await Filesystem.writeFile({
-      path: filename,
-      data: csvText,
-      directory: Directory.Cache,
-      encoding: Encoding.UTF8
-    });
-    await Share.share({
-      title: filename,
-      url: written.uri
-    });
-    return;
-  }
-
   const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

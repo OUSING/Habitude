@@ -1,11 +1,8 @@
-import { Preferences } from "@capacitor/preferences";
+import { Preferences } from "./preferences";
 
 /**
  * Small key/value settings (theme, onboarding flags) go through
- * @capacitor/preferences rather than Dexie. On native iOS/Android this
- * is backed by UserDefaults/SharedPreferences; in a plain browser (e.g.
- * `npm run dev`) the plugin transparently falls back to localStorage,
- * so no environment branching is needed here.
+ * services/preferences.ts (localStorage) rather than Dexie.
  */
 
 const THEME_KEY = "habit-tracker:theme";
@@ -194,32 +191,6 @@ export async function getPhoneActivitySynced(): Promise<boolean> {
 
 export async function setPhoneActivitySynced(synced: boolean): Promise<void> {
   await Preferences.set({ key: PHONE_ACTIVITY_SYNCED_KEY, value: String(synced) });
-}
-
-/* --------------------------- Step tracking --------------------------- */
-
-const AUTO_STEPS_ENABLED_KEY = "habit-tracker:autoStepsEnabled";
-const STEPS_HABIT_ID_KEY = "habit-tracker:stepsHabitId";
-
-export async function getAutoStepsEnabled(): Promise<boolean> {
-  const { value } = await Preferences.get({ key: AUTO_STEPS_ENABLED_KEY });
-  return value === "true";
-}
-
-export async function setAutoStepsEnabled(enabled: boolean): Promise<void> {
-  await Preferences.set({ key: AUTO_STEPS_ENABLED_KEY, value: String(enabled) });
-}
-
-/** The id of the auto-created "Steps" habit, once one exists — cached here
- *  rather than matched by name each time, so renaming the habit doesn't
- *  break the link. */
-export async function getStepsHabitId(): Promise<number | null> {
-  const { value } = await Preferences.get({ key: STEPS_HABIT_ID_KEY });
-  return value ? Number(value) : null;
-}
-
-export async function setStepsHabitId(id: number): Promise<void> {
-  await Preferences.set({ key: STEPS_HABIT_ID_KEY, value: String(id) });
 }
 
 /* ------------------------- Tracker card visibility ------------------------- */

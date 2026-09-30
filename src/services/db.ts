@@ -27,10 +27,9 @@ export interface DailyNote {
 
 /**
  * All habit + log data lives in IndexedDB via Dexie, so the app works
- * fully offline. This is what @capacitor/preferences is deliberately
- * NOT used for — Preferences is a simple key/value store meant for
- * small settings (theme, onboarding flags), not for a growing table
- * of logs. See services/settings.ts for that split.
+ * fully offline. This is what services/preferences.ts is deliberately
+ * NOT used for — that is a simple key/value store meant for small
+ * settings (theme, onboarding flags), not for a growing table of logs. See services/settings.ts for that split.
  */
 export class HabitDB extends Dexie {
   habits!: Table<Habit, number>;

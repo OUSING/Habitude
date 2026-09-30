@@ -1,13 +1,9 @@
-import { Capacitor } from "@capacitor/core";
-import { App } from "@capacitor/app";
-import { GoogleAuth } from "@codetrix-studio/capacitor-google-auth";
 import { db } from "./db";
 import { getSession } from "./auth";
 import type { Habit, HabitLog } from "../types/habit";
 import type { Todo } from "../types/todo";
 import type { CalEvent } from "../types/event";
 import type { DailyNote, ActivityLog } from "./db";
-import { syncStepHistory } from "./stepTracker";
 import { ensureGisLoaded } from "./googleAuthWeb";
 import {
   getAutoSyncEnabled,
@@ -32,11 +28,7 @@ import {
  * (created via the "drive.file" scope, so the app can only see files it
  * created — never the rest of the user's Drive).
  *
- * Native (Android/iOS): the access token comes from the same
- * @codetrix-studio/capacitor-google-auth sign-in used for login (see
- * capacitor.config.ts, which now includes the drive.file scope).
- *
- * Web: sign-in (googleAuthWeb.ts) uses the OAuth authorization-code flow
+ * Sign-in (googleAuthWeb.ts) uses the OAuth authorization-code flow
  * and hands back a refresh token alongside the first access token. That
  * refresh token is what this file leans on: it's persisted client-side
  * and, whenever the cached access token has expired, exchanged for a new
@@ -76,9 +68,6 @@ export interface BackupPayload {
 /* ------------------------------ Data I/O ------------------------------ */
 
 async function collectBackupPayload(): Promise<BackupPayload> {
-  // On the phone, snapshot recent pedometer totals before uploading so the
-  // same activity history is available to the desktop after synchronization.
-  try { await syncStepHistory(30); } catch (err) { console.warn("Step history sync failed:", err); }
   const [habits, logs, todos, dailyNotes, activityLogs, events, theme, viewMode] = await Promise.all([
     db.habits.toArray(),
     db.logs.toArray(),
@@ -347,18 +336,6 @@ function requestWebDriveToken(): Promise<string> {
  *   instead, which callers treat as "skip silently, try again later."
  */
 async function getDriveAccessToken(interactive: boolean): Promise<string> {
-  if (Capacitor.isNativePlatform()) {
-    // GoogleAuth.refresh() reuses the OS-level Google session silently and
-    // never shows UI, so it's unaffected by the interactive/background
-    // distinction above — safe to call from any context.
-    const result: any = await GoogleAuth.refresh();
-    const token = result?.accessToken;
-    if (!token) {
-      throw new Error("Google session expired — sign out and back in, then try again.");
-    }
-    return token;
-  }
-
   if (cachedWebDriveToken && cachedWebDriveToken.expiresAt - TOKEN_EXPIRY_BUFFER_MS > Date.now()) {
     return cachedWebDriveToken.token;
   }
@@ -392,7 +369,7 @@ function invalidateCachedWebDriveToken(): void {
 }
 
 export function clearDriveWebSession(): void {
-  if (!Capacitor.isNativePlatform()) invalidateCachedWebDriveToken();
+  invalidateCachedWebDriveToken();
 }
 
 /** Called right after a successful web sign-in, which now requests
@@ -405,7 +382,6 @@ export function clearDriveWebSession(): void {
  *  the user again. Existing sessions that already have a stored refresh
  *  token are left alone if this sign-in didn't get a new one. */
 export function seedWebDriveToken(token: string, expiresInSec: number, refreshToken?: string | null): void {
-  if (Capacitor.isNativePlatform()) return;
   const cached: CachedWebToken = { token, expiresAt: Date.now() + expiresInSec * 1000 };
   cachedWebDriveToken = cached;
   persistWebToken(cached);
@@ -751,8 +727,7 @@ export async function runAutoPull(): Promise<void> {
 let autoPullHooksInstalled = false;
 
 /** Wires up the "pull the latest Drive backup" checks: once on startup,
- *  then again every time the app is foregrounded (native `App.resume`,
- *  or the web tab/window regaining focus/visibility). Safe to call more
+ *  then again every time the app is foregrounded (the tab/window regaining focus or visibility). Safe to call more
  *  than once — only installs the listeners the first time. */
 export function initAutoPull(): void {
   if (autoPullHooksInstalled) return;
@@ -760,16 +735,10 @@ export function initAutoPull(): void {
 
   void runAutoPull();
 
-  if (Capacitor.isNativePlatform()) {
-    App.addListener("appStateChange", ({ isActive }) => {
-      if (isActive) void runAutoPull();
-    });
-  } else {
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") void runAutoPull();
-    });
-    window.addEventListener("focus", () => void runAutoPull());
-  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void runAutoPull();
+  });
+  window.addEventListener("focus", () => void runAutoPull());
 }
 
 /** Installs the Dexie hooks that trigger auto sync. Safe to call more than

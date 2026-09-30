@@ -1,18 +1,19 @@
 # Habitude — Habit Tracker
 
-App mobile-first de suivi d'habitudes. React + Vite + TypeScript + Tailwind CSS,
-stockage 100% local (IndexedDB via Dexie.js), prête à être packagée en app
-iOS/Android avec Capacitor.
+Application web mobile-first de suivi d'habitudes et de tâches. React + Vite +
+TypeScript + Tailwind CSS, stockage 100% local (IndexedDB via Dexie.js).
+Site statique : `npm run build` produit un dossier `dist/` à héberger où tu veux.
 
 ## Stack
 
-- **UI** : React 18 + TypeScript, Tailwind CSS (mobile-first, sans `hover:`)
+- **UI** : React 19 + TypeScript, Tailwind CSS (mobile-first, sans `hover:`)
 - **Icônes** : lucide-react
 - **Données** : Dexie.js (IndexedDB) pour les habitudes et les logs — offline-first
-- **Réglages** : `@capacitor/preferences` (thème) — fonctionne aussi bien en
-  navigateur (fallback localStorage intégré au plugin) que sur device
-- **Notifications** : `@capacitor/local-notifications` (rappels programmés,
-  no-op silencieux hors app native)
+- **Réglages** : `localStorage` via `src/services/preferences.ts` (thème, options)
+- **Notifications** : API `Notification` du navigateur (rappels d'habitudes).
+  Un site web ne peut afficher ces rappels que tant que la page est ouverte
+  (onglet ou fenêtre de l'app installée) ; il n'y a pas de planification au
+  niveau de l'OS sans serveur push.
 
 ## Connexion Google / sauvegarde Drive (web)
 
@@ -58,33 +59,6 @@ npm run build   # sort dans /dist
 npm run preview # sert le build de prod localement
 ```
 
-## Packager avec Capacitor (iOS / Android)
-
-1. Génère les projets natifs (une seule fois) :
-
-   ```bash
-   npx cap add android
-   npx cap add ios      # nécessite macOS + Xcode
-   ```
-
-2. À chaque changement du code web, resynchronise avant d'ouvrir l'IDE natif :
-
-   ```bash
-   npm run cap:sync
-   npm run cap:open:android   # ouvre Android Studio
-   npm run cap:open:ios       # ouvre Xcode
-   ```
-
-3. Avant publication, pense à :
-   - changer `appId` dans `capacitor.config.ts` (actuellement
-     `com.example.habittracker`) ;
-   - fournir une icône `ic_stat_habit` pour les notifications Android
-     (`android/app/src/main/res/drawable*`) ;
-   - vérifier les permissions de notifications dans
-     `android/app/src/main/AndroidManifest.xml` (Capacitor les ajoute
-     automatiquement pour `@capacitor/local-notifications`, mais ça vaut le
-     coup de vérifier après `cap sync`).
-
 ## Structure du projet
 
 ```
@@ -93,12 +67,13 @@ src/
   services/
     db.ts                 Définition Dexie (IndexedDB)
     habitService.ts        CRUD habitudes/logs + calcul streak/taux
-    notifications.ts       Intégration @capacitor/local-notifications
-    settings.ts             Intégration @capacitor/preferences (thème)
+    notifications.ts       Rappels via l'API Notification du navigateur
+    preferences.ts          Petit store clé/valeur (localStorage)
+    settings.ts             Réglages (thème, options)
   hooks/
     useHabits.ts            Hooks réactifs (dexie-react-hooks liveQuery)
     useTheme.ts              Dark mode
-    useNotificationSetup.ts Demande de permission au démarrage
+    useNotificationSetup.ts Réarme les rappels au démarrage
   utils/
     date.ts, palette.ts, streak.ts   Fonctions pures, sans dépendance UI
   components/
@@ -106,7 +81,7 @@ src/
     HabitCard.tsx, WeekStrip.tsx, FAB.tsx, BottomNav.tsx,
     Heatmap.tsx, WeekChart.tsx
   screens/
-    Dashboard.tsx, AddEditHabit.tsx, Stats.tsx
+    Dashboard.tsx, TodoList.tsx, CalendarView.tsx, AddEditHabit.tsx, Stats.tsx, Settings.tsx
   App.tsx                  État d'écran + shell mobile (max-w-app, centré)
 ```
 
@@ -118,7 +93,7 @@ src/
 - `html, body, #root` sont `overflow: hidden` ; seuls les conteneurs
   `.scroll-area` défilent, avec `overscroll-behavior: contain` — ça évite le
   bug classique du fond blanc qui apparaît quand iOS "rebondit" en haut/bas
-  de page dans une WebView Capacitor.
+  de page dans le navigateur mobile.
 - `viewport-fit=cover` + les classes `pt-safe-top` / `pb-safe-bottom`
   (mappées sur `env(safe-area-inset-*)`) gèrent l'encoche et la barre de
-  gestes sans configuration native supplémentaire.
+  gestes sur les téléphones à encoche.

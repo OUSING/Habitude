@@ -1,18 +1,8 @@
-import { useEffect, useState } from "react";
-import { Capacitor } from "@capacitor/core";
+import { useState } from "react";
 import {
   Flame,
-  Footprints,
   CheckCircle2
 } from "lucide-react";
-import {
-  checkStepsPermission,
-  disableAutoSteps,
-  enableAutoSteps,
-  isStepsAvailableOnDevice,
-} from "../services/stepTracker";
-import { getAutoStepsEnabled } from "../services/settings";
-import type { StepsPermissionState } from "../platform/stepCounter";
 import { WeekChart } from "../components/WeekChart";
 import { MonthChart } from "../components/MonthChart";
 import { RegularityLineChart } from "../components/RegularityLineChart";
@@ -21,102 +11,6 @@ import { ActivityHistoryChart } from "../components/ActivityHistoryChart";
 import { useHabits, useLogsForHabit } from "../hooks/useHabits";
 import { monthlyCompletionRate, computeMonthlyStreak } from "../utils/streak";
 import type { Habit } from "../types/habit";
-
-function StepTrackingSection() {
-  const isNative = Capacitor.isNativePlatform();
-  const [available, setAvailable] = useState(false);
-  const [enabled, setEnabled] = useState(false);
-  const [permission, setPermission] = useState<StepsPermissionState>("prompt");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-
-  useEffect(() => {
-    if (!isNative) return;
-    isStepsAvailableOnDevice().then(setAvailable);
-    getAutoStepsEnabled().then(setEnabled);
-    checkStepsPermission().then(setPermission);
-  }, [isNative]);
-
-  // Not on native (dev server) or the device has no step sensor at all —
-  // nothing useful to show here.
-  if (!isNative || !available) return null;
-
-  async function handleToggle() {
-    if (busy) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      if (enabled) {
-        await disableAutoSteps();
-        setEnabled(false);
-      } else {
-        const result = await enableAutoSteps();
-        setPermission(result);
-        if (result === "granted") {
-          setEnabled(true);
-          setMessage({ kind: "success", text: "Step tracking is on — today's count will sync automatically." });
-        } else {
-          setMessage({
-            kind: "error",
-            text: "Permission was not granted, so step tracking couldn't be turned on. Check your device's app permissions."
-          });
-        }
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-
-  return (
-    <section className="mb-4 rounded-2xl bg-surface p-3 shadow-sm border border-border">
-      <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
-          <Footprints size={17} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-ink">Automatic step tracking</p>
-          <p className="text-[11.5px] text-muted">
-            {enabled
-              ? "Tracking your phone's pedometer separately from habits."
-              : "Track steps automatically from your phone's pedometer."}
-          </p>
-        </div>
-        <button
-          onClick={handleToggle}
-          disabled={busy}
-          aria-pressed={enabled}
-          className={[
-            "tap-target relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60",
-            enabled ? "bg-brand" : "bg-surface-2"
-          ].join(" ")}
-        >
-          <span
-            className={[
-              "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-              enabled ? "translate-x-5" : "translate-x-0.5"
-            ].join(" ")}
-          />
-        </button>
-      </div>
-
-      {permission === "denied" && !enabled && (
-        <p className="mt-2 text-[11px] text-muted">
-          Motion/activity permission was previously denied — you may need to grant it from your device's system settings.
-        </p>
-      )}
-
-      {message && (
-        <p
-          role="alert"
-          className={["mt-2 text-[11.5px]", message.kind === "error" ? "text-red-500" : "text-emerald-600"].join(" ")}
-        >
-          {message.text}
-        </p>
-      )}
-    </section>
-  );
-}
 
 function HabitRateRow({ habit, year, month }: { habit: Habit; year: number; month: number }) {
   const logs = useLogsForHabit(habit.id);
@@ -273,8 +167,6 @@ export function Stats() {
                 )}
               </div>
             </section>
-
-            <StepTrackingSection />
           </div>
 
           <div className="flex flex-col lg:col-start-2">

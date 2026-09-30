@@ -1,15 +1,13 @@
 import { useEffect } from "react";
-import { Capacitor } from "@capacitor/core";
-import { LocalNotifications } from "@capacitor/local-notifications";
+import { db } from "../services/db";
+import { notificationPermission, scheduleHabitReminder } from "../services/notifications";
 
-/** Fire-and-forget permission prompt, mounted once from App.tsx. */
+/** On startup, re-arm every habit reminder (timers don't survive a reload). */
 export function useNotificationSetup() {
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    LocalNotifications.checkPermissions().then((status) => {
-      if (status.display === "granted") {
-        LocalNotifications.requestPermissions();
-      }
+    if (notificationPermission() !== "granted") return;
+    void db.habits.toArray().then((habits) => {
+      for (const habit of habits) void scheduleHabitReminder(habit);
     });
   }, []);
 }

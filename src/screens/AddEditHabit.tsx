@@ -13,8 +13,7 @@ import { defaultIcon, getIcon } from "../utils/icons";
 import { todayStr } from "../utils/date";
 import type { Frequency, FrequencyUnit, Weekday } from "../types/habit";
 import { useConfirm } from "../components/ui/ConfirmDialog";
-import { Capacitor } from "@capacitor/core";
-import { LocalNotifications } from "@capacitor/local-notifications";
+import { ensureNotificationPermission, notificationPermission, notificationsSupported } from "../services/notifications";
 
 interface Props {
   open: boolean;
@@ -129,24 +128,21 @@ export function AddEditHabit({ open, habitId, onClose }: Props) {
             };
       const measurement = isMeasurable ? { target: targetNum, unit: unit.trim() } : undefined;
 
-      // Check notification permissions if a reminder is being set
-      if (reminderTime && Capacitor.isNativePlatform()) {
-        try {
-          const status = await LocalNotifications.checkPermissions();
-          if (status.display !== "granted") {
-            const ok = await confirm({
-              title: "Enable Notifications?",
-              message: "You've set a reminder time, but notifications are currently disabled. Please enable notifications in your device settings to receive reminders.",
-              confirmText: "Enable in Settings",
-              cancelText: "Save Anyway",
-              type: "warning"
-            });
-            if (ok) {
-              await LocalNotifications.requestPermissions();
-            }
-          }
-        } catch (err) {
-          console.warn("Error checking notification permissions:", err);
+      // Reminders are browser notifications, so ask for permission the
+      // moment one is set (this runs straight off the Save click).
+      if (reminderTime && notificationPermission() !== "granted") {
+        const granted = await ensureNotificationPermission();
+        if (!granted) {
+          const ok = await confirm({
+            title: "Reminders are blocked",
+            message: notificationsSupported()
+              ? "Your browser isn't allowing notifications for this site, so this reminder won't show. You can allow them in the browser's site settings.\n\nSave the habit anyway?"
+              : "This browser doesn't support notifications, so this reminder won't show.\n\nSave the habit anyway?",
+            confirmText: "Save Anyway",
+            cancelText: "Go Back",
+            type: "warning"
+          });
+          if (!ok) return;
         }
       }
 

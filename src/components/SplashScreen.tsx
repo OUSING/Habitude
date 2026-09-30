@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import lottie, { type AnimationItem } from "lottie-web";
-import { Capacitor } from "@capacitor/core";
 import { getThemePreference, resolveTheme, type ThemeMode } from "../services/settings";
 import splashDefault from "../assets/lottie/splash.json";
 
@@ -32,12 +31,6 @@ export function SplashScreen({ onFinish }: Props) {
     const start = async () => {
       let theme: ThemeMode = "crimson";
       try { theme = resolveTheme(await getThemePreference()); } catch { /* use default */ }
-
-      if (Capacitor.isNativePlatform()) {
-        import("@capacitor/splash-screen")
-          .then(({ SplashScreen: NativeSplashScreen }) => NativeSplashScreen.hide())
-          .catch(() => {});
-      }
 
       if (containerRef.current) {
         anim = lottie.loadAnimation({

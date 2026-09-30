@@ -1,66 +1,83 @@
-import { Capacitor } from "@capacitor/core";
-import { LocalNotifications } from "@capacitor/local-notifications";
 import type { Habit } from "../types/habit";
 
 /**
- * All functions here are safe to call unconditionally from anywhere in
- * the app (web dev server included). On a real device, once this is
- * wrapped with `npx cap sync`, they schedule genuine OS-level local
- * notifications — no server or push service required.
+ * Habit reminders using the browser Notification API.
+ *
+ * A web page can only show these while it is open (a tab, or the installed
+ * app window) — there is no OS-level scheduling without a push server — so
+ * reminders are timers that live as long as the page does. Everything here
+ * is safe to call unconditionally: on browsers without Notification support
+ * it quietly does nothing.
  */
 
-function isNative(): boolean {
-  return Capacitor.isNativePlatform();
+const timers = new Map<number, number>();
+
+export function notificationsSupported(): boolean {
+  return typeof window !== "undefined" && "Notification" in window;
 }
 
-/** Call once on app start (see hooks/useNotificationSetup.ts). */
+export function notificationPermission(): NotificationPermission | "unsupported" {
+  return notificationsSupported() ? Notification.permission : "unsupported";
+}
+
+/** Asks the browser for permission (must be called from a click/tap). */
 export async function ensureNotificationPermission(): Promise<boolean> {
-  if (!isNative()) return false;
+  if (!notificationsSupported()) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
   try {
-    const current = await LocalNotifications.checkPermissions();
-    if (current.display === "granted") return true;
-    const requested = await LocalNotifications.requestPermissions();
-    return requested.display === "granted";
+    return (await Notification.requestPermission()) === "granted";
   } catch (err) {
     console.warn("Notification permission request failed", err);
     return false;
   }
 }
 
-/** Deterministic 32-bit notification id derived from the habit's row id. */
-function notificationIdFor(habitId: number): number {
-  return habitId;
+/** Milliseconds until the next occurrence of hh:mm (always in the future). */
+function msUntilNext(hour: number, minute: number): number {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(hour, minute, 0, 0);
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+  return next.getTime() - now.getTime();
 }
 
-export async function scheduleHabitReminder(habit: Habit): Promise<void> {
-  if (!isNative() || !habit.reminderTime || !habit.id) return;
-  const [hour, minute] = habit.reminderTime.split(":").map(Number);
-
+function show(habit: Habit): void {
   try {
-    // Clear any previous reminder for this habit before rescheduling —
-    // avoids duplicate notifications if the time was edited.
-    await LocalNotifications.cancel({ notifications: [{ id: notificationIdFor(habit.id) }] });
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          id: notificationIdFor(habit.id),
-          title: "Habit reminder",
-          body: `Time for: ${habit.name}`,
-          schedule: { on: { hour, minute }, repeats: true, allowWhileIdle: true },
-          smallIcon: "ic_stat_habit"
-        }
-      ]
+    new Notification("Habit reminder", {
+      body: `Time for: ${habit.name}`,
+      icon: "./icon-192.png",
+      tag: `habit-${habit.id}`
     });
   } catch (err) {
-    console.warn("Failed to schedule reminder", err);
+    // Some mobile browsers only allow notifications from a service worker.
+    console.warn("Could not show reminder", err);
   }
 }
 
 export async function cancelHabitReminder(habitId: number): Promise<void> {
-  if (!isNative()) return;
-  try {
-    await LocalNotifications.cancel({ notifications: [{ id: notificationIdFor(habitId) }] });
-  } catch (err) {
-    console.warn("Failed to cancel reminder", err);
-  }
+  const t = timers.get(habitId);
+  if (t != null) window.clearTimeout(t);
+  timers.delete(habitId);
+}
+
+export async function scheduleHabitReminder(habit: Habit): Promise<void> {
+  if (habit.id == null) return;
+  const id = habit.id;
+  await cancelHabitReminder(id);
+  if (!habit.reminderTime || habit.archived || notificationPermission() !== "granted") return;
+
+  const [hour, minute] = habit.reminderTime.split(":").map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return;
+
+  const arm = () => {
+    timers.set(
+      id,
+      window.setTimeout(() => {
+        show(habit);
+        arm(); // and again tomorrow
+      }, msUntilNext(hour, minute))
+    );
+  };
+  arm();
 }

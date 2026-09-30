@@ -18,7 +18,6 @@ import { getIcon } from "../utils/icons";
 import { computeMonthlyStreak } from "../utils/streak";
 import { playCheckSound, playUncheckSound } from "../utils/sound";
 import type { Habit } from "../types/habit";
-import { StepCounterCard } from "./StepCounterCard";
 
 interface Props {
   selectedDate: string;
@@ -315,10 +314,6 @@ export function GridHabitDashboard({ selectedDate, onSelectDate, onOpenHabit, on
             <small>{weeklyProgress >= 70 ? "Doing great" : "Keep building"}</small>
           </div>
         </section>
-
-        <div className="grid-mode-trackers">
-          <StepCounterCard />
-        </div>
 
         <section className="grid-mode-calendar-card">
           <div className="grid-mode-calendar-top">

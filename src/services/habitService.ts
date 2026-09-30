@@ -30,7 +30,7 @@ export async function createHabit(input: NewHabit): Promise<Habit> {
   };
   const id = await db.habits.add(habit);
   const saved = { ...habit, id };
-  await scheduleHabitReminder(saved); // no-op outside a native shell, see services/notifications.ts
+  await scheduleHabitReminder(saved); // arms a browser reminder timer, see services/notifications.ts
   return saved;
 }
 

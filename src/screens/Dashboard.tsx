@@ -11,7 +11,6 @@ import { paletteDefault } from "../utils/palette";
 import { defaultIcon } from "../utils/icons";
 import { getShowCompletedHabits, setShowCompletedHabits } from "../services/settings";
 import type { ViewMode } from "../services/settings";
-import { StepCounterCard } from "../components/StepCounterCard";
 import { GridHabitDashboard } from "../components/GridHabitDashboard";
 
 interface Props {
@@ -114,8 +113,6 @@ export function Dashboard({ selectedDate, onSelectDate, onOpenHabit, onAddHabit,
       </header>
 
       <main className="scroll-area flex-1 px-4 py-4">
-        <StepCounterCard />
-
         {habits.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
             <p className="font-display text-lg font-semibold text-ink">Nothing scheduled</p>

@@ -2829,7 +2829,7 @@ button:active,
 }
 
 
-/* User-selectable handwriting fonts. The preference is stored with Capacitor Preferences. */
+/* User-selectable handwriting fonts. The preference is stored in localStorage (see services/preferences.ts). */
 html[data-font="jojoba"] body { font-family: "Jojoba", "Nunito", system-ui, sans-serif; }
 html[data-font="pretty-neat"] body { font-family: "Pretty Neat", "Nunito", system-ui, sans-serif; }
 html[data-font="jojoba"] .font-display,

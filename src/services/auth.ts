@@ -1,4 +1,4 @@
-import { Preferences } from "@capacitor/preferences";
+import { Preferences } from "./preferences";
 
 const SESSION_KEY = "habit-tracker:session";
 

@@ -10,15 +10,12 @@ import { BottomNav } from "./components/BottomNav";
 import { AmbientBackground } from "./components/AmbientBackground";
 import { SplashScreen } from "./components/SplashScreen";
 import { useNotificationSetup } from "./hooks/useNotificationSetup";
-import { useStepSync } from "./hooks/useStepSync";
 import { useTheme } from "./hooks/useTheme";
 import { useAuth } from "./hooks/useAuth";
 import { todayStr } from "./utils/date";
 import { getFontPreference, getViewMode, setFontPreference, setViewMode, type Appearance, type FontPreference, type ViewMode, type ThemeMode } from "./services/settings";
-import { initHabitWidgetSync, syncHabitWidget } from "./services/habitWidget";
 import { initAutoSync, initAutoPull } from "./services/driveBackup";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
-import { NotificationPrimer } from "./components/ui/NotificationPrimer";
 import { CompletionCelebration } from "./components/CompletionCelebration";
 import { DesktopShell } from "./components/DesktopShell";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -34,7 +31,6 @@ export default function App() {
   useEffect(() => {
     initAutoSync();
     initAutoPull();
-    initHabitWidgetSync();
   }, []);
 
   return (
@@ -94,10 +90,6 @@ function AppContent({ theme, appearance, toggleTheme, cycleAppearance, session, 
       setSelectedDate((current) => {
         const wasViewingToday = current === lastKnownTodayRef.current;
         if (wasViewingToday) {
-          // The widget's checklist is keyed by day too — if the calendar day
-          // rolled over while the app was open/backgrounded, push a refresh
-          // so it doesn't keep showing yesterday's (now stale) habits.
-          void syncHabitWidget();
           return today;
         }
         // User had deliberately navigated elsewhere — leave their place alone.
@@ -131,7 +123,6 @@ function AppContent({ theme, appearance, toggleTheme, cycleAppearance, session, 
   const [font, setFont] = useState<FontPreference>("jojoba");
 
   useNotificationSetup();
-  useStepSync();
 
   useEffect(() => {
     getViewMode().then(setViewModeState);
@@ -292,7 +283,6 @@ function AppContent({ theme, appearance, toggleTheme, cycleAppearance, session, 
       </div>
 
       <AddEditHabit open={sheetOpen} habitId={editingHabitId} onClose={closeSheet} />
-      <NotificationPrimer onClose={() => {}} />
     </div>
   );
 }
