@@ -190,6 +190,29 @@ function CheckCircle({
 function SubTodoRow({ todo }: { todo: Todo }) {
   const [burstKey, setBurstKey] = useState(0);
   const confirm = useConfirm();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(todo.text);
+  const editRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      editRef.current?.focus();
+      editRef.current?.select();
+    }
+  }, [editing]);
+
+  function startEdit() {
+    setDraft(todo.text);
+    setEditing(true);
+  }
+
+  async function commitEdit() {
+    if (!editing) return;
+    setEditing(false);
+    const next = draft.trim();
+    // An empty name keeps the old one rather than blanking the subtask.
+    if (next && next !== todo.text && todo.id != null) await updateTodo(todo.id, { text: next });
+  }
 
   async function handleToggle() {
     if (!todo.id) return;
@@ -226,14 +249,59 @@ function SubTodoRow({ todo }: { todo: Todo }) {
           label={todo.done ? "Mark as not done" : "Mark as done"}
         />
       </div>
-      <p
-        className={[
-          "min-w-0 flex-1 truncate text-[11px]",
-          todo.done ? "text-muted line-through" : "font-medium text-ink"
-        ].join(" ")}
-      >
-        {todo.text}
-      </p>
+      {editing ? (
+        <input
+          ref={editRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void commitEdit()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void commitEdit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              setDraft(todo.text);
+              setEditing(false);
+            }
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerMove={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          aria-label="Edit subtask"
+          maxLength={200}
+          className="min-w-0 flex-1 rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink outline-none"
+        />
+      ) : (
+        <p
+          onClick={(e) => {
+            e.stopPropagation();
+            startEdit();
+          }}
+          className={[
+            "min-w-0 flex-1 cursor-text truncate text-[11px]",
+            todo.done ? "text-muted line-through" : "font-medium text-ink"
+          ].join(" ")}
+        >
+          {todo.text}
+        </p>
+      )}
+      {!editing && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            startEdit();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerMove={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          aria-label="Edit subtask"
+          className="flex h-5 w-5 min-h-0 min-w-0 shrink-0 items-center justify-center rounded-full text-muted/70 opacity-0 transition-opacity group-hover:opacity-100 active:text-ink sm:opacity-40"
+        >
+          <Pencil size={10} />
+        </button>
+      )}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -599,7 +667,7 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
               )}
               {(todo.dueDate || todo.dueTime) && (
                 <p className="mt-0.5 text-[9.5px] leading-tight text-muted">
-                  {todo.dueDate ? `Due ${todo.dueDate}` : ""}{todo.dueDate && todo.dueTime ? " · " : ""}{todo.dueTime ?? ""}
+                  {todo.dueDate ? `Due ${todo.dueDate}` : ""}{todo.dueDate && todo.dueTime ? " · " : ""}{todo.dueTime ?? ""}{todo.dueTime && todo.dueEndTime ? ` – ${todo.dueEndTime}` : ""}
                 </p>
               )}
               {hasSubs ? (

@@ -1,6 +1,7 @@
 import Dexie, { type Table } from "dexie";
 import type { Habit, HabitLog } from "../types/habit";
 import type { Todo } from "../types/todo";
+import type { CalEvent } from "../types/event";
 
 export interface ActivityLog {
   /** Stable id so the same phone log can be synchronized repeatedly without duplicates. */
@@ -37,6 +38,7 @@ export class HabitDB extends Dexie {
   todos!: Table<Todo, number>;
   dailyNotes!: Table<DailyNote, number>;
   activityLogs!: Table<ActivityLog, string>;
+  events!: Table<CalEvent, number>;
 
   constructor() {
     super("habit-tracker-db");
@@ -76,6 +78,16 @@ export class HabitDB extends Dexie {
       todos: "++id, createdAt, parentId",
       dailyNotes: "++id, &date, updatedAt",
       activityLogs: "&id, date, type, [type+date]"
+    });
+    // v6 adds calendar events (the Calendar tab). To-dos appear on the
+    // calendar through their own dueDate/dueTime, so they need no changes.
+    this.version(6).stores({
+      habits: "++id, name, archived, parentId",
+      logs: "++id, habitId, date, [habitId+date]",
+      todos: "++id, createdAt, parentId",
+      dailyNotes: "++id, &date, updatedAt",
+      activityLogs: "&id, date, type, [type+date]",
+      events: "++id, date, endDate"
     });
   }
 }

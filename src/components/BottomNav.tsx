@@ -1,4 +1,4 @@
-import { BarChart2, Home, ListChecks } from "lucide-react";
+import { BarChart2, CalendarDays, Home, ListChecks } from "lucide-react";
 import type { Screen } from "../App";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
 const TABS: { screen: Screen; label: string; icon: typeof Home }[] = [
   { screen: "dashboard", label: "Today", icon: Home },
   { screen: "todos", label: "To-Do", icon: ListChecks },
+  { screen: "calendar", label: "Calendar", icon: CalendarDays },
   { screen: "stats", label: "Stats", icon: BarChart2 }
 ];
 
@@ -29,7 +30,7 @@ function NavTab({ s, label, icon: Icon, active, onChange }: { s: Screen; label: 
   );
 }
 
-// Bottom nav is navigation-only — Today, To-Do, Stats. View mode (list/grid)
+// Bottom nav is navigation-only — Today, To-Do, Calendar, Stats. View mode (list/grid)
 // and settings live in the Dashboard header instead, since they act on/from
 // a specific screen rather than being destinations of their own.
 export function BottomNav({ screen, onChange }: Props) {

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  getDarkMode,
+  getAppearance,
   getThemePreference,
   resolveTheme,
-  setDarkMode,
+  setAppearance,
   setThemePreference,
+  type Appearance,
   type ThemeMode
 } from "../services/settings";
 
@@ -17,19 +18,20 @@ const THEME_CLASSES: Record<ThemeMode, string> = {
   grey: "theme-grey"
 };
 
+const APPEARANCE_CYCLE: Appearance[] = ["light", "dark", "bright"];
 const ALL_THEME_CLASSES = Object.values(THEME_CLASSES);
 
 export function useTheme() {
   const [theme, setThemeState] = useState<ThemeMode>("crimson");
-  const [isDark, setIsDark] = useState(false);
+  const [appearance, setAppearanceState] = useState<Appearance>("light");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getThemePreference(), getDarkMode()]).then(([pref, dark]) => {
+    Promise.all([getThemePreference(), getAppearance()]).then(([pref, mode]) => {
       if (cancelled) return;
       setThemeState(resolveTheme(pref));
-      setIsDark(dark);
+      setAppearanceState(mode);
       setLoaded(true);
     });
     return () => { cancelled = true; };
@@ -37,10 +39,13 @@ export function useTheme() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove(...ALL_THEME_CLASSES, "theme-dark-mode", "theme-dark");
+    root.classList.remove(...ALL_THEME_CLASSES, "theme-dark-mode", "theme-bright-mode", "theme-dark");
     root.classList.add(THEME_CLASSES[theme]);
-    if (isDark) root.classList.add("theme-dark-mode");
-  }, [theme, isDark]);
+    // "bright" is a lighter dark mode: it keeps every dark-mode rule and
+    // layers theme-bright-mode on top to lift the background.
+    if (appearance === "dark" || appearance === "bright") root.classList.add("theme-dark-mode");
+    if (appearance === "bright") root.classList.add("theme-bright-mode");
+  }, [theme, appearance]);
 
   const toggle = useCallback(() => {
     setThemeState((current) => {
@@ -55,13 +60,14 @@ export function useTheme() {
     void setThemePreference(next);
   }, []);
 
-  const toggleDark = useCallback(() => {
-    setIsDark((current) => {
-      const next = !current;
-      void setDarkMode(next);
+  /** Cycles Light -> Dark -> Bright dark -> Light. */
+  const cycleAppearance = useCallback(() => {
+    setAppearanceState((current) => {
+      const next = APPEARANCE_CYCLE[(APPEARANCE_CYCLE.indexOf(current) + 1) % APPEARANCE_CYCLE.length];
+      void setAppearance(next);
       return next;
     });
   }, []);
 
-  return { theme, isDark, toggle, setTheme, toggleDark, loaded };
+  return { theme, appearance, isDark: appearance === "dark", toggle, setTheme, cycleAppearance, toggleDark: cycleAppearance, loaded };
 }

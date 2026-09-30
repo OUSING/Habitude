@@ -27,3 +27,10 @@ export function useSubTodos(parentId: number | undefined): Todo[] {
   }, [parentId]);
   return subs ?? [];
 }
+
+/** Every to-do — top-level tasks AND subtasks — reactive. The Calendar uses
+ *  this so anything created on the To-Do list shows up there automatically. */
+export function useAllTodos(): Todo[] {
+  const todos = useLiveQuery(() => db.todos.toArray(), []);
+  return todos ?? [];
+}

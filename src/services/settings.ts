@@ -46,6 +46,22 @@ export async function setDarkMode(enabled: boolean): Promise<void> {
   await Preferences.set({ key: DARK_MODE_KEY, value: String(enabled) });
 }
 
+/** light = the regular light themes, dark = deep near-black dark mode,
+ *  bright = "bright dark": still a dark mode, but with a lifted slate
+ *  background instead of near-black. Stored under the same key as the old
+ *  dark-mode flag ("true"/"false" still mean dark/light), so existing
+ *  installs keep their setting. */
+export type Appearance = "light" | "dark" | "bright";
+
+export async function getAppearance(): Promise<Appearance> {
+  const { value } = await Preferences.get({ key: DARK_MODE_KEY });
+  return value === "true" ? "dark" : value === "bright" ? "bright" : "light";
+}
+
+export async function setAppearance(mode: Appearance): Promise<void> {
+  await Preferences.set({ key: DARK_MODE_KEY, value: mode === "dark" ? "true" : mode === "bright" ? "bright" : "false" });
+}
+
 /* ------------------------------ Font choice ------------------------------ */
 
 const FONT_KEY = "habit-tracker:font";
@@ -156,6 +172,18 @@ export async function setShowCompletedTodos(show: boolean): Promise<void> {
   await Preferences.set({ key: SHOW_COMPLETED_TODOS_KEY, value: String(show) });
 }
 
+
+const CALENDAR_AGENDA_KEY = "habit-tracker:calendarAgenda";
+
+/** Whether the selected-day task panel shows next to the calendar. On by default. */
+export async function getShowCalendarAgenda(): Promise<boolean> {
+  const { value } = await Preferences.get({ key: CALENDAR_AGENDA_KEY });
+  return value !== "false";
+}
+
+export async function setShowCalendarAgenda(show: boolean): Promise<void> {
+  await Preferences.set({ key: CALENDAR_AGENDA_KEY, value: String(show) });
+}
 
 const PHONE_ACTIVITY_SYNCED_KEY = "habit-tracker:phoneActivitySynced";
 

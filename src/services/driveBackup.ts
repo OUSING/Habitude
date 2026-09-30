@@ -5,6 +5,7 @@ import { db } from "./db";
 import { getSession } from "./auth";
 import type { Habit, HabitLog } from "../types/habit";
 import type { Todo } from "../types/todo";
+import type { CalEvent } from "../types/event";
 import type { DailyNote, ActivityLog } from "./db";
 import { syncStepHistory } from "./stepTracker";
 import { ensureGisLoaded } from "./googleAuthWeb";
@@ -62,6 +63,8 @@ export interface BackupPayload {
   todos: Todo[];
   dailyNotes: DailyNote[];
   activityLogs: ActivityLog[];
+  /** Optional so backups made before the Calendar existed still restore. */
+  events?: CalEvent[];
   settings: {
     theme: ThemePreference;
     /** No longer used — kept optional so old backup files still restore fine. */
@@ -76,12 +79,13 @@ async function collectBackupPayload(): Promise<BackupPayload> {
   // On the phone, snapshot recent pedometer totals before uploading so the
   // same activity history is available to the desktop after synchronization.
   try { await syncStepHistory(30); } catch (err) { console.warn("Step history sync failed:", err); }
-  const [habits, logs, todos, dailyNotes, activityLogs, theme, viewMode] = await Promise.all([
+  const [habits, logs, todos, dailyNotes, activityLogs, events, theme, viewMode] = await Promise.all([
     db.habits.toArray(),
     db.logs.toArray(),
     db.todos.toArray(),
     db.dailyNotes.toArray(),
     db.activityLogs.toArray(),
+    db.events.toArray(),
     getThemePreference(),
     getViewMode()
   ]);
@@ -93,6 +97,7 @@ async function collectBackupPayload(): Promise<BackupPayload> {
     todos,
     dailyNotes,
     activityLogs,
+    events,
     settings: { theme, viewMode }
   };
 }
@@ -113,11 +118,14 @@ async function applyBackupPayload(data: BackupPayload): Promise<void> {
     // Replace local data wholesale — this is a restore, not a merge.
     // Ids are kept as-is (bulkAdd accepts explicit primary keys) so that
     // logs keep pointing at the right habitId.
-    await db.transaction("rw", db.habits, db.logs, db.todos, db.dailyNotes, db.activityLogs, async () => {
+    await db.transaction("rw", [db.habits, db.logs, db.todos, db.dailyNotes, db.activityLogs, db.events], async () => {
       await db.habits.clear();
       await db.logs.clear();
       await db.todos.clear();
       await db.dailyNotes.clear();
+      // Only replace events if the backup has them — an older backup with
+      // no events field must not wipe the calendar.
+      if (Array.isArray(data.events)) await db.events.clear();
       // Activity history is append/merge data, not configuration. Keep local
       // records and upsert synchronized records so a restore never erases
       // activity collected on this device.
@@ -126,6 +134,7 @@ async function applyBackupPayload(data: BackupPayload): Promise<void> {
       if (data.logs?.length) await db.logs.bulkAdd(data.logs);
       if (data.todos?.length) await db.todos.bulkAdd(data.todos);
       if (data.dailyNotes?.length) await db.dailyNotes.bulkAdd(data.dailyNotes);
+      if (data.events?.length) await db.events.bulkAdd(data.events);
     });
 
     // The desktop/web UI should only expose "Synced activity" after a real
@@ -773,7 +782,7 @@ export function initAutoSync(): void {
   if (hooksInstalled) return;
   hooksInstalled = true;
 
-  for (const table of [db.habits, db.logs, db.todos, db.dailyNotes, db.activityLogs]) {
+  for (const table of [db.habits, db.logs, db.todos, db.dailyNotes, db.activityLogs, db.events]) {
     table.hook("creating", () => {
       scheduleAutoSync();
     });

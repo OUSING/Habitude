@@ -1,5 +1,5 @@
-import { CalendarDays, CheckSquare, List, LayoutGrid, Settings, BarChart3, Sun, Moon } from "lucide-react";
-import type { ThemeMode } from "../services/settings";
+import { CalendarDays, CalendarRange, CheckSquare, List, LayoutGrid, Settings, BarChart3 } from "lucide-react";
+import type { Appearance, ThemeMode } from "../services/settings";
 import type { ReactNode } from "react";
 import type { Screen } from "../App";
 import type { ViewMode } from "../services/settings";
@@ -7,6 +7,7 @@ import { useHabits, useLogsForHabit, useLogsInRange } from "../hooks/useHabits";
 import { isHabitScheduledOn, todayStr } from "../utils/date";
 import { WeekChart } from "./WeekChart";
 import { ThemeToggle } from "./ThemeToggle";
+import { AppearanceToggle } from "./AppearanceToggle";
 
 /** Today's completion ring — how many of today's scheduled habits are done.
  *  Compact horizontal layout for the bottom bar. */
@@ -122,25 +123,18 @@ function BottomSummaryBar() {
 function ThemeControl({
   theme,
   onToggleTheme,
-  isDark,
-  onToggleDark
+  appearance,
+  onCycleAppearance
 }: {
   theme: ThemeMode;
   onToggleTheme: () => void;
-  isDark: boolean;
-  onToggleDark: () => void;
+  appearance: Appearance;
+  onCycleAppearance: () => void;
 }) {
   return (
     <div className="desktop-theme-control">
       <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-      <button
-        onClick={onToggleDark}
-        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-        className="desktop-theme-btn"
-      >
-        {isDark ? <Sun size={16} /> : <Moon size={16} />}
-      </button>
+      <AppearanceToggle appearance={appearance} onCycle={onCycleAppearance} className="desktop-theme-btn" />
     </div>
   );
 }
@@ -153,8 +147,8 @@ interface Props {
   onAddHabit: () => void;
   theme: ThemeMode;
   onToggleTheme: () => void;
-  isDark: boolean;
-  onToggleDark: () => void;
+  appearance: Appearance;
+  onCycleAppearance: () => void;
   children: ReactNode;
 }
 
@@ -166,11 +160,11 @@ export function DesktopShell({
   onAddHabit,
   theme,
   onToggleTheme,
-  isDark,
-  onToggleDark,
+  appearance,
+  onCycleAppearance,
   children
 }: Props) {
-  const title = screen === "dashboard" ? "Today" : screen === "todos" ? "To-Do" : screen === "stats" ? "Statistics" : "Settings";
+  const title = screen === "dashboard" ? "Today" : screen === "todos" ? "To-Do" : screen === "calendar" ? "Calendar" : screen === "stats" ? "Statistics" : "Settings";
 
   return (
     <div className="desktop-shell">
@@ -209,6 +203,14 @@ export function DesktopShell({
                 <CheckSquare size={16} /> <span>To-Do</span>
               </button>
               <button
+                className={screen === "calendar" ? "active" : ""}
+                onClick={() => onChangeScreen("calendar")}
+                title="Calendar"
+                aria-label="Calendar"
+              >
+                <CalendarRange size={16} /> <span>Calendar</span>
+              </button>
+              <button
                 className={screen === "stats" ? "active" : ""}
                 onClick={() => onChangeScreen("stats")}
                 title="Statistics"
@@ -225,7 +227,7 @@ export function DesktopShell({
                 <Settings size={16} /> <span>Settings</span>
               </button>
             </div>
-            <ThemeControl theme={theme} onToggleTheme={onToggleTheme} isDark={isDark} onToggleDark={onToggleDark} />
+            <ThemeControl theme={theme} onToggleTheme={onToggleTheme} appearance={appearance} onCycleAppearance={onCycleAppearance} />
             {screen === "dashboard" && (
               <div className="desktop-view-toggle" aria-label="Dashboard view">
                 <button className={viewMode === "loop" ? "active" : ""} onClick={() => onChangeViewMode("loop")}>
@@ -236,7 +238,7 @@ export function DesktopShell({
                 </button>
               </div>
             )}
-            {screen !== "settings" && (
+            {screen !== "settings" && screen !== "calendar" && (
               <button className="desktop-primary-btn" onClick={onAddHabit}>
                 <span>＋</span> New habit
               </button>

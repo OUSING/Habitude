@@ -25,9 +25,13 @@ export interface Todo {
   dueDate?: string;
   /** Optional due time in local 24-hour HH:MM format. */
   dueTime?: string;
+  /** Optional end time (local 24-hour HH:MM). Only meaningful with dueTime; used by the Calendar to size the task block. */
+  dueEndTime?: string;
+  /** Optional hex color the task is drawn with on the Calendar. Absent = the app theme color. */
+  color?: string;
   /** Set only for subtasks — the id of the main to-do they're nested under.
    *  Absent for top-level to-dos. */
   parentId?: number;
 }
 
-export type NewTodo = Pick<Todo, "text" | "icon"> & Partial<Pick<Todo, "frequency" | "customRepeat" | "dueDate" | "dueTime">> & { parentId?: number };
+export type NewTodo = Pick<Todo, "text" | "icon"> & Partial<Pick<Todo, "frequency" | "customRepeat" | "dueDate" | "dueTime" | "dueEndTime" | "color">> & { parentId?: number };

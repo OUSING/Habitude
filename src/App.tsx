@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, LayoutGrid, LayoutList, Moon, Settings as SettingsIcon, Sun } from "lucide-react";
+import { ArrowLeft, LayoutGrid, LayoutList, Settings as SettingsIcon } from "lucide-react";
 import { Dashboard } from "./screens/Dashboard";
 import { Stats } from "./screens/Stats";
 import { Settings } from "./screens/Settings";
 import { TodoList } from "./screens/TodoList";
+import { CalendarView } from "./screens/CalendarView";
 import { AddEditHabit } from "./screens/AddEditHabit";
 import { BottomNav } from "./components/BottomNav";
 import { AmbientBackground } from "./components/AmbientBackground";
@@ -13,7 +14,7 @@ import { useStepSync } from "./hooks/useStepSync";
 import { useTheme } from "./hooks/useTheme";
 import { useAuth } from "./hooks/useAuth";
 import { todayStr } from "./utils/date";
-import { getFontPreference, getViewMode, setFontPreference, setViewMode, type FontPreference, type ViewMode, type ThemeMode } from "./services/settings";
+import { getFontPreference, getViewMode, setFontPreference, setViewMode, type Appearance, type FontPreference, type ViewMode, type ThemeMode } from "./services/settings";
 import { initHabitWidgetSync, syncHabitWidget } from "./services/habitWidget";
 import { initAutoSync, initAutoPull } from "./services/driveBackup";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
@@ -21,11 +22,12 @@ import { NotificationPrimer } from "./components/ui/NotificationPrimer";
 import { CompletionCelebration } from "./components/CompletionCelebration";
 import { DesktopShell } from "./components/DesktopShell";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { AppearanceToggle } from "./components/AppearanceToggle";
 
-export type Screen = "dashboard" | "todos" | "stats" | "settings";
+export type Screen = "dashboard" | "todos" | "calendar" | "stats" | "settings";
 
 export default function App() {
-  const { theme, isDark, toggle: toggleTheme, toggleDark } = useTheme();
+  const { theme, appearance, toggle: toggleTheme, cycleAppearance } = useTheme();
   const { loaded: authLoaded, session, signIn, signOut } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
 
@@ -48,9 +50,9 @@ export default function App() {
         <ConfirmProvider>
           <AppContent
             theme={theme}
-            isDark={isDark}
+            appearance={appearance}
             toggleTheme={toggleTheme}
-            toggleDark={toggleDark}
+            cycleAppearance={cycleAppearance}
             session={session}
             onSignIn={signIn}
             onSignOut={signOut}
@@ -63,15 +65,15 @@ export default function App() {
 
 interface AppContentProps {
   theme: ThemeMode;
-  isDark: boolean;
+  appearance: Appearance;
   toggleTheme: () => void;
-  toggleDark: () => void;
+  cycleAppearance: () => void;
   session: any;
   onSignIn: () => Promise<any>;
   onSignOut: () => Promise<void>;
 }
 
-function AppContent({ theme, isDark, toggleTheme, toggleDark, session, onSignIn, onSignOut }: AppContentProps) {
+function AppContent({ theme, appearance, toggleTheme, cycleAppearance, session, onSignIn, onSignOut }: AppContentProps) {
   const [screen, setScreen] = useState<Screen>("dashboard");
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -180,8 +182,8 @@ function AppContent({ theme, isDark, toggleTheme, toggleDark, session, onSignIn,
           onAddHabit={addHabit}
           theme={theme}
           onToggleTheme={toggleTheme}
-          isDark={isDark}
-          onToggleDark={toggleDark}
+          appearance={appearance}
+          onCycleAppearance={cycleAppearance}
         >
           {screen === "dashboard" && (
             <Dashboard
@@ -193,6 +195,7 @@ function AppContent({ theme, isDark, toggleTheme, toggleDark, session, onSignIn,
             />
           )}
           {screen === "todos" && <TodoList />}
+          {screen === "calendar" && <CalendarView />}
           {screen === "stats" && <Stats />}
           {screen === "settings" && (
             <Settings
@@ -214,14 +217,12 @@ function AppContent({ theme, isDark, toggleTheme, toggleDark, session, onSignIn,
                 <div className="flex items-center justify-between pt-4">
                   <h1 className="font-display text-2xl font-semibold text-ink">Today</h1>
                   <div className="flex items-center gap-1">
-                    <button
-                      onClick={toggleDark}
-                      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-                      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                    <AppearanceToggle
+                      appearance={appearance}
+                      onCycle={cycleAppearance}
+                      size={16}
                       className="tap-target flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors active:bg-surface-2 active:text-ink"
-                    >
-                      {isDark ? <Sun size={16} strokeWidth={2.2} /> : <Moon size={16} strokeWidth={2.2} />}
-                    </button>
+                    />
                     <ThemeToggle theme={theme} onToggle={toggleTheme} />
                     <button
                       onClick={() => changeViewMode(viewMode === "loop" ? "list" : "loop")}
@@ -254,6 +255,7 @@ function AppContent({ theme, isDark, toggleTheme, toggleDark, session, onSignIn,
             </div>
           )}
           {screen === "todos" && <TodoList />}
+          {screen === "calendar" && <CalendarView />}
           {screen === "stats" && <Stats />}
           {screen === "settings" && (
             <div className="flex h-full flex-col">

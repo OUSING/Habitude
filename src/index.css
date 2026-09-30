@@ -2918,3 +2918,27 @@ html[data-font="pretty-neat"] .font-display { font-family: inherit; }
 .task-composer-due-time:focus {
   color: rgb(var(--color-ink));
 }
+
+/* ---------------- Bright dark appearance ----------------
+   A second dark mode. "Dark" is the deep near-black one; "Bright dark"
+   keeps everything that makes it dark mode (light text, dark surfaces,
+   every `.theme-dark-mode` rule) but lifts the neutrals to a soft slate so
+   the background no longer looks black. The theme color is lifted a little
+   too, because saturated dark tones (crimson, deep purple) would otherwise
+   vanish against a mid-grey background.
+   The JS adds BOTH `theme-dark-mode` and `theme-bright-mode`; the tripled
+   selector below outranks the per-theme `.theme-x.theme-dark-mode` blocks
+   regardless of order. */
+.theme-bright-mode.theme-dark-mode.theme-dark-mode {
+  --color-bg: 44 47 58;
+  --color-surface: 57 61 74;
+  --color-surface-2: 72 77 93;
+  --color-ink: 245 246 250;
+  --color-muted: 181 186 201;
+  --color-border: 96 102 120;
+}
+.theme-crimson.theme-bright-mode.theme-dark-mode { --theme-main:#f0525e; --color-brand:240 82 94; --color-accent:240 82 94; }
+.theme-orange-custom.theme-bright-mode.theme-dark-mode { --theme-main:#ff6b3d; --color-brand:255 107 61; --color-accent:255 107 61; }
+.theme-amber.theme-bright-mode.theme-dark-mode { --theme-main:#ffb020; --color-brand:255 176 32; --color-accent:255 176 32; }
+.theme-purple.theme-bright-mode.theme-dark-mode { --theme-main:#a78bfa; --theme-dark-solid:#8b5cf6; --theme-gradient:linear-gradient(90deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%); --color-brand:139 92 246; --color-accent:196 181 253; }
+.theme-grey.theme-bright-mode.theme-dark-mode { --theme-main:#b4b9c6; --color-brand:180 185 198; --color-accent:200 204 214; }
