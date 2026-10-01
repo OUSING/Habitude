@@ -33,7 +33,7 @@ import {
   type CalItem,
   type CalendarViewMode
 } from "../utils/calendar";
-import type { CalEvent } from "../types/event";
+import type { CalEvent, NewCalEvent } from "../types/event";
 import type { Todo } from "../types/todo";
 
 const TASK_COLOR = "rgb(var(--color-brand))";
@@ -608,10 +608,58 @@ function CheckDot({ item, size = 14 }: { item: CalItem; size?: number }) {
   );
 }
 
+/** Whole days from date `a` to date `b` (both YYYY-MM-DD). */
+function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) / 86400000);
+}
+
+/** Can this item be dragged to a new place? Subtasks that follow their parent move with it. */
+function canMove(item: CalItem): boolean {
+  if (item.inherited) return false;
+  return item.kind === "event" || (item.kind === "task" && item.todo?.id != null);
+}
+
+/** Moves an item on the calendar. `newDate` is the day it was dropped on; `newStart` (minutes from
+ *  midnight) is its new start time, when dropped on the time grid. Duration is kept. A repeating
+ *  task keeps its repeat day — moving it would shift the whole series — so only its time changes. */
+async function moveCalItem(item: CalItem, newDate: string, newStart?: number): Promise<void> {
+  const delta = daysBetween(item.date, newDate);
+  const lastMin = 23 * 60 + 59;
+
+  if (item.event) {
+    const ev = item.event;
+    if (ev.id == null) return;
+    const changes: Partial<NewCalEvent> = { date: addDays(ev.date, delta) };
+    if (ev.endDate) changes.endDate = addDays(ev.endDate, delta);
+    if (!ev.allDay && newStart != null) {
+      const s0 = timeToMin(ev.startTime) ?? newStart;
+      const e0 = timeToMin(ev.endTime) ?? s0 + 60;
+      const dur = Math.max(15, e0 - s0);
+      changes.startTime = minToTime(newStart);
+      changes.endTime = minToTime(Math.min(newStart + dur, lastMin));
+    }
+    await updateEvent(ev.id, changes);
+    return;
+  }
+
+  const t = item.todo;
+  if (t?.id == null) return;
+  const changes: Parameters<typeof updateTodo>[1] = {};
+  if (!item.recurring) changes.dueDate = newDate;
+  if (newStart != null && t.dueTime) {
+    const s0 = timeToMin(t.dueTime) ?? newStart;
+    const e0 = timeToMin(t.dueEndTime);
+    changes.dueTime = minToTime(newStart);
+    if (e0 != null && e0 > s0) changes.dueEndTime = minToTime(Math.min(newStart + (e0 - s0), lastMin));
+  }
+  await updateTodo(t.id, changes);
+}
+
 function Chip({ item, onOpen }: { item: CalItem; onOpen: (i: CalItem) => void }) {
   const isTask = item.kind === "task" && item.todo?.id != null;
   return (
     <div
+      data-chip={item.key}
       className="flex w-full items-center gap-0.5 rounded-[4px] px-0.5 py-px"
       style={{ backgroundColor: tint(item, "strong"), borderLeft: `2px solid ${item.color}` }}
     >
@@ -652,6 +700,110 @@ function MonthView({
   const curMonth = parts(cursor).month;
   const maxChips = wide ? 4 : 2;
 
+  // Drag a chip onto another day to move it there.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const lookupRef = useRef(new Map<string, CalItem>());
+  const dragRef = useRef<{
+    item: CalItem;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+    timer?: number;
+  } | null>(null);
+  const suppressRef = useRef(false);
+  const [drag, setDrag] = useState<{ item: CalItem; x: number; y: number; hover: string | null } | null>(null);
+
+  const lookup = new Map<string, CalItem>();
+  for (const d of weeks.flat()) for (const it of itemsByDate(d)) lookup.set(it.key, it);
+  lookupRef.current = lookup;
+
+  const dateAt = (x: number, y: number): string | null =>
+    document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-date]")?.dataset.date ?? null;
+
+  function endDrag() {
+    if (dragRef.current?.timer) window.clearTimeout(dragRef.current.timer);
+    dragRef.current = null;
+    setDrag(null);
+  }
+
+  function activateDrag(x: number, y: number) {
+    const d = dragRef.current;
+    if (!d || d.active) return;
+    d.active = true;
+    try {
+      gridRef.current?.setPointerCapture(d.pointerId);
+    } catch {
+      /* pointer already gone */
+    }
+    setDrag({ item: d.item, x, y, hover: dateAt(x, y) });
+  }
+
+  function onGridPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const key = (e.target as HTMLElement).closest<HTMLElement>("[data-chip]")?.dataset.chip;
+    const item = key ? lookupRef.current.get(key) : undefined;
+    // A repeating task would drag its whole series, so those stay put here.
+    if (!item || !canMove(item) || item.recurring) return;
+    const state = { item, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false, timer: undefined as number | undefined };
+    dragRef.current = state;
+    if (e.pointerType === "touch") {
+      // Hold briefly to pick a chip up; a quick swipe still scrolls.
+      state.timer = window.setTimeout(() => {
+        if (dragRef.current !== state) return;
+        activateDrag(state.startX, state.startY);
+        navigator.vibrate?.(8);
+      }, 300);
+    }
+  }
+
+  function onGridPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    const moved = Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 6;
+    if (!d.active) {
+      if (!moved) return;
+      if (e.pointerType === "touch") endDrag();
+      else activateDrag(e.clientX, e.clientY);
+      return;
+    }
+    setDrag((p) => (p ? { ...p, x: e.clientX, y: e.clientY, hover: dateAt(e.clientX, e.clientY) } : p));
+  }
+
+  function onGridPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    const wasActive = d.active;
+    const target = wasActive ? dateAt(e.clientX, e.clientY) : null;
+    const item = d.item;
+    endDrag();
+    if (!wasActive) return;
+    // The click that follows a drop must not also open the item.
+    suppressRef.current = true;
+    window.setTimeout(() => (suppressRef.current = false), 350);
+    if (target && target !== item.date) void moveCalItem(item, target);
+  }
+
+  // While a touch drag is active, keep the page from scrolling under the finger.
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const block = (ev: TouchEvent) => {
+      if (dragRef.current?.active && ev.cancelable) ev.preventDefault();
+    };
+    el.addEventListener("touchmove", block, { passive: false });
+    return () => el.removeEventListener("touchmove", block);
+  }, []);
+
+  useEffect(() => () => {
+    if (dragRef.current?.timer) window.clearTimeout(dragRef.current.timer);
+  }, []);
+
+  const openItem = (i: CalItem) => {
+    if (suppressRef.current) return;
+    onOpenItem(i);
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="grid shrink-0 grid-cols-7 border-b border-border">
@@ -661,7 +813,15 @@ function MonthView({
           </div>
         ))}
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-7 md:grid-rows-6" style={wide ? undefined : { gridAutoRows: 72 }}>
+      <div
+        ref={gridRef}
+        onPointerDown={onGridPointerDown}
+        onPointerMove={onGridPointerMove}
+        onPointerUp={onGridPointerUp}
+        onPointerCancel={endDrag}
+        className="grid min-h-0 flex-1 grid-cols-7 md:grid-rows-6"
+        style={wide ? undefined : { gridAutoRows: 72 }}
+      >
         {weeks.flat().map((d) => {
           const p = parts(d);
           const items = itemsByDate(d);
@@ -673,15 +833,16 @@ function MonthView({
           return (
             <div
               key={d}
+              data-date={d}
               role="button"
               tabIndex={0}
               aria-label={formatFullDate(d)}
               aria-pressed={isSel}
-              onClick={() => onSelect(d)}
+              onClick={() => !suppressRef.current && onSelect(d)}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSelect(d)}
               className={[
                 "flex min-h-0 min-w-0 cursor-pointer flex-col gap-px overflow-hidden border-b border-r border-border/60 p-0.5 transition-colors",
-                isSel ? "bg-brand/10" : "active:bg-surface-2"
+                drag?.hover === d ? "bg-brand/20 ring-2 ring-inset ring-brand" : isSel ? "bg-brand/10" : "active:bg-surface-2"
               ].join(" ")}
             >
               <span
@@ -693,13 +854,23 @@ function MonthView({
                 {p.day}
               </span>
               {shown.map((it) => (
-                <Chip key={it.key} item={it} onOpen={onOpenItem} />
+                <Chip key={it.key} item={it} onOpen={openItem} />
               ))}
               {extra > 0 && <span className="px-1 text-[9.5px] font-medium leading-[12px] text-muted">+{extra} more</span>}
             </div>
           );
         })}
       </div>
+      {drag && (
+        <div className="pointer-events-none fixed z-50 max-w-[170px] rounded-md bg-surface shadow-lg" style={{ left: drag.x + 12, top: drag.y + 12 }}>
+          <div
+            className="truncate rounded-md px-2 py-1 text-[11px] font-semibold text-ink"
+            style={{ backgroundColor: tint(drag.item, "strong"), borderLeft: `3px solid ${drag.item.color}` }}
+          >
+            {drag.item.title}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -855,7 +1026,8 @@ function TimeGrid({
   selected,
   onSelect,
   onOpenItem,
-  onCreateRange
+  onCreateRange,
+  onMoveItem
 }: {
   days: string[];
   itemsByDate: (d: string) => CalItem[];
@@ -863,6 +1035,8 @@ function TimeGrid({
   onSelect: (d: string) => void;
   onOpenItem: (i: CalItem) => void;
   onCreateRange: (date: string, startTime: string, endTime: string) => void;
+  /** Called when a block is dragged somewhere new: the day column and start time (minutes) it was dropped at. */
+  onMoveItem: (item: CalItem, date: string, startMin: number) => void;
 }) {
   const now = useNow();
   const today = todayStr();
@@ -966,18 +1140,137 @@ function TimeGrid({
     }
   }
 
+  // ---- Drag an existing block to move it (time, and day in Week view) ----
+  const colEls = useRef<Record<string, HTMLDivElement | null>>({});
+  const [moving, setMoving] = useState<{ item: CalItem; date: string; start: number; end: number } | null>(null);
+  const mv = useRef<{
+    item: CalItem;
+    originDate: string;
+    pointerId: number;
+    el: HTMLElement;
+    grab: number;
+    dur: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+    lockDay: boolean;
+    last: { date: string; start: number };
+    timer?: number;
+    begin: () => void;
+  } | null>(null);
+  const suppressClick = useRef(false);
+
+  function colAt(clientX: number, fallback: string): string {
+    for (const d of days) {
+      const r = colEls.current[d]?.getBoundingClientRect();
+      if (r && clientX >= r.left && clientX < r.right) return d;
+    }
+    const first = colEls.current[days[0]]?.getBoundingClientRect();
+    if (first && clientX < first.left) return days[0];
+    return days.length ? days[days.length - 1] : fallback;
+  }
+
+  function endMove() {
+    if (mv.current?.timer) window.clearTimeout(mv.current.timer);
+    mv.current = null;
+    setMoving(null);
+  }
+
+  function onBlockPointerDown(e: React.PointerEvent<HTMLDivElement>, item: CalItem, date: string) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (!canMove(item) || item.startMin == null) return;
+    const col = colEls.current[date];
+    if (!col) return;
+    const start = item.startMin;
+    const end = item.endMin ?? start + 30;
+    const grab = ((e.clientY - col.getBoundingClientRect().top) / HOUR_H) * 60 - start;
+    const dur = Math.max(SNAP, end - start);
+    const state: NonNullable<typeof mv.current> = {
+      item,
+      originDate: date,
+      pointerId: e.pointerId,
+      el: e.currentTarget,
+      grab,
+      dur,
+      startX: e.clientX,
+      startY: e.clientY,
+      active: false,
+      // A repeating task keeps its repeat day — dragging sideways would shift the whole series.
+      lockDay: !!item.recurring,
+      last: { date, start },
+      begin: () => {
+        if (mv.current !== state) return;
+        state.active = true;
+        try {
+          state.el.setPointerCapture(state.pointerId);
+        } catch {
+          /* pointer already gone */
+        }
+        setMoving({ item, date, start, end: start + dur });
+      }
+    };
+    mv.current = state;
+    // Touch: hold briefly to pick the block up, so a swipe still scrolls the grid.
+    if (e.pointerType === "touch") {
+      state.timer = window.setTimeout(() => {
+        state.begin();
+        navigator.vibrate?.(8);
+      }, 300);
+    }
+  }
+
+  function onBlockPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const m = mv.current;
+    if (!m || e.pointerId !== m.pointerId) return;
+    const moved = Math.hypot(e.clientX - m.startX, e.clientY - m.startY) > 5;
+    if (!m.active) {
+      if (!moved) return;
+      if (e.pointerType === "touch") endMove(); // it was a scroll, not a drag
+      else m.begin();
+      if (!m.active) return;
+    }
+    const date = m.lockDay ? m.originDate : colAt(e.clientX, m.originDate);
+    const col = colEls.current[date];
+    if (!col) return;
+    const raw = ((e.clientY - col.getBoundingClientRect().top) / HOUR_H) * 60 - m.grab;
+    const start = Math.max(0, Math.min(24 * 60 - m.dur, Math.round(raw / SNAP) * SNAP));
+    m.last = { date, start };
+    setMoving({ item: m.item, date, start, end: start + m.dur });
+
+    // Nudge the grid when dragging near its top/bottom edge.
+    const box = scrollRef.current?.getBoundingClientRect();
+    if (box && scrollRef.current) {
+      if (e.clientY < box.top + 56) scrollRef.current.scrollTop -= 14;
+      else if (e.clientY > box.bottom - 40) scrollRef.current.scrollTop += 14;
+    }
+  }
+
+  function onBlockPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const m = mv.current;
+    if (!m || e.pointerId !== m.pointerId) return;
+    const wasActive = m.active;
+    const { item, last, originDate } = m;
+    endMove();
+    if (!wasActive) return;
+    // The click that follows a drop must not also open the item.
+    suppressClick.current = true;
+    window.setTimeout(() => (suppressClick.current = false), 350);
+    if (last.date !== originDate || last.start !== item.startMin) onMoveItem(item, last.date, last.start);
+  }
+
   // Once a touch selection is active, stop the page from scrolling under the finger.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const block = (ev: TouchEvent) => {
-      if (drag.current?.active && ev.cancelable) ev.preventDefault();
+      if ((drag.current?.active || mv.current?.active) && ev.cancelable) ev.preventDefault();
     };
     el.addEventListener("touchmove", block, { passive: false });
     return () => el.removeEventListener("touchmove", block);
   }, []);
 
   useEffect(() => () => {
+    if (mv.current?.timer) window.clearTimeout(mv.current.timer);
     if (drag.current?.timer) window.clearTimeout(drag.current.timer);
   }, []);
 
@@ -1056,6 +1349,9 @@ function TimeGrid({
           return (
             <div
               key={d}
+              ref={(el) => {
+                colEls.current[d] = el;
+              }}
               className="relative select-none border-l border-border/50"
               style={{
                 touchAction: "pan-y",
@@ -1079,8 +1375,16 @@ function TimeGrid({
                   <div
                     key={item.key}
                     data-cal-item
-                    className="absolute flex items-start gap-1 overflow-hidden rounded-md px-1 py-0.5 text-ink"
+                    onPointerDown={(e) => onBlockPointerDown(e, item, d)}
+                    onPointerMove={onBlockPointerMove}
+                    onPointerUp={onBlockPointerUp}
+                    onPointerCancel={endMove}
+                    className={[
+                      "absolute flex items-start gap-1 overflow-hidden rounded-md px-1 py-0.5 text-ink",
+                      moving?.item.key === item.key ? "opacity-40" : ""
+                    ].join(" ")}
                     style={{
+                      cursor: canMove(item) ? "grab" : undefined,
                       top: (start / 60) * HOUR_H + 1,
                       height,
                       left: `calc(${(lane / lanes) * 100}% + 1px)`,
@@ -1097,6 +1401,7 @@ function TimeGrid({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (suppressClick.current) return;
                         onOpenItem(item);
                       }}
                       className={[
@@ -1128,6 +1433,21 @@ function TimeGrid({
                   </div>
                 );
               })}
+              {moving && moving.date === d && (
+                <div
+                  className="pointer-events-none absolute left-0.5 right-0.5 z-[7] overflow-hidden rounded-md border-2 bg-surface/80 px-1 py-0.5 text-[10.5px] font-semibold leading-tight text-ink shadow-lg"
+                  style={{
+                    top: (moving.start / 60) * HOUR_H,
+                    height: Math.max(20, ((moving.end - moving.start) / 60) * HOUR_H - 2),
+                    borderColor: moving.item.color
+                  }}
+                >
+                  <span className="block truncate">{moving.item.title}</span>
+                  <span className="block truncate text-[9.5px] font-normal text-muted">
+                    {formatTime12(minToTime(moving.start))} – {formatTime12(minToTime(Math.min(moving.end, 24 * 60 - 1)))}
+                  </span>
+                </div>
+              )}
               {sel && sel.date === d && (
                 <div
                   className="pointer-events-none absolute left-0.5 right-0.5 z-[4] overflow-hidden rounded-md border-2 border-brand bg-brand/20 px-1 py-0.5 text-[10.5px] font-semibold leading-tight text-ink"
@@ -1334,6 +1654,7 @@ export function CalendarView() {
               }}
               onOpenItem={openItem}
               onCreateRange={(date, startTime, endTime) => setEditor({ kind: "new", date, startTime, endTime })}
+              onMoveItem={(item, date, startMin) => void moveCalItem(item, date, startMin)}
             />
           )}
         </div>
