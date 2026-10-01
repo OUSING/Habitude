@@ -182,6 +182,55 @@ export async function setShowCalendarAgenda(show: boolean): Promise<void> {
   await Preferences.set({ key: CALENDAR_AGENDA_KEY, value: String(show) });
 }
 
+const CALENDAR_FILTERS_KEY = "habit-tracker:calendarFilters";
+const CALENDAR_CREATE_MODE_KEY = "habit-tracker:calendarCreateMode";
+
+export interface CalendarFilters {
+  events: boolean;
+  tasks: boolean;
+}
+
+/** Which of Events / Tasks the calendar shows. Both on by default. */
+export async function getCalendarFilters(): Promise<CalendarFilters> {
+  const { value } = await Preferences.get({ key: CALENDAR_FILTERS_KEY });
+  try {
+    const parsed = value ? JSON.parse(value) : null;
+    return { events: parsed?.events !== false, tasks: parsed?.tasks !== false };
+  } catch {
+    return { events: true, tasks: true };
+  }
+}
+
+export async function setCalendarFilters(filters: CalendarFilters): Promise<void> {
+  await Preferences.set({ key: CALENDAR_FILTERS_KEY, value: JSON.stringify(filters) });
+}
+
+export type CalendarCreateMode = "event" | "task";
+
+/** What the calendar's "New" sheet opens on — whatever you created last. */
+export async function getCalendarCreateMode(): Promise<CalendarCreateMode> {
+  const { value } = await Preferences.get({ key: CALENDAR_CREATE_MODE_KEY });
+  return value === "task" ? "task" : "event";
+}
+
+export async function setCalendarCreateMode(mode: CalendarCreateMode): Promise<void> {
+  await Preferences.set({ key: CALENDAR_CREATE_MODE_KEY, value: mode });
+}
+
+const CALENDAR_VIEW_KEY = "habit-tracker:calendarView";
+
+export type CalendarViewChoice = "month" | "week" | "day";
+
+/** The calendar's last-used layout (Month / Week / Day). Month by default. */
+export async function getCalendarView(): Promise<CalendarViewChoice> {
+  const { value } = await Preferences.get({ key: CALENDAR_VIEW_KEY });
+  return value === "week" || value === "day" ? value : "month";
+}
+
+export async function setCalendarView(view: CalendarViewChoice): Promise<void> {
+  await Preferences.set({ key: CALENDAR_VIEW_KEY, value: view });
+}
+
 const PHONE_ACTIVITY_SYNCED_KEY = "habit-tracker:phoneActivitySynced";
 
 export async function getPhoneActivitySynced(): Promise<boolean> {

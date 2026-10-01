@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Check, ChevronLeft, ChevronRight, PanelRight, Plus, Repeat2, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, PanelRight, Pencil, Plus, Repeat2, Trash2, X } from "lucide-react";
 import { useEvents } from "../hooks/useEvents";
 import { useAllTodos, useSubTodos } from "../hooks/useTodos";
 import { createEvent, deleteEvent, updateEvent } from "../services/eventService";
@@ -7,12 +7,23 @@ import { createSubTodo, createTodo, deleteTodo, toggleTodo, updateTodo } from ".
 import { Modal } from "../components/ui/Modal";
 import { Button } from "../components/ui/Button";
 import { playCheckSound, playUncheckSound } from "../utils/sound";
-import { getShowCalendarAgenda, setShowCalendarAgenda } from "../services/settings";
+import {
+  getCalendarCreateMode,
+  getCalendarFilters,
+  getCalendarView,
+  getShowCalendarAgenda,
+  setCalendarCreateMode,
+  setCalendarFilters,
+  setCalendarView,
+  setShowCalendarAgenda,
+  type CalendarCreateMode
+} from "../services/settings";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { addDays, formatFullDate, todayStr, weekdayOf } from "../utils/date";
 import {
   addMonths,
   formatTime12,
+  isDoneOn,
   itemsForDate,
   layoutTimed,
   minToTime,
@@ -84,7 +95,7 @@ type EditorState =
   | { kind: "event"; event: CalEvent }
   | { kind: "task"; todo: Todo; date: string };
 
-const fieldClass = "w-full rounded-xl bg-surface-2 px-3 py-2.5 text-[14px] text-ink outline-none";
+const fieldClass = "w-full rounded-xl bg-surface-2 px-3 py-2.5 text-[13px] text-ink outline-none";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -136,12 +147,17 @@ function ColorRow({ value, onChange, allowDefault }: { value: string; onChange: 
  *  subtasks once the task exists. */
 function SubtasksSection({
   parentId,
+  parent,
+  date,
   drafts,
   setDrafts,
   input,
   setInput
 }: {
   parentId?: number;
+  /** The main task, and the day being edited — a repeating task's subtasks are checked per day. */
+  parent?: Todo;
+  date: string;
   drafts: string[];
   setDrafts: (d: string[]) => void;
   input: string;
@@ -183,17 +199,19 @@ function SubtasksSection({
       <span className="text-[13px] font-medium text-muted">Subtasks</span>
       <ul className="flex flex-col gap-1">
         {parentId != null &&
-          subs.map((sub) => (
+          subs.map((sub) => {
+            const subDone = parent && !sub.dueDate ? isDoneOn(sub, date, parent) : sub.done;
+            return (
             <li key={sub.id} className="flex items-center gap-2 rounded-lg bg-surface-2 px-2 py-1.5">
               <button
                 type="button"
-                aria-label={sub.done ? "Mark subtask not done" : "Mark subtask done"}
-                aria-pressed={sub.done}
-                onClick={() => sub.id != null && void toggleTodo(sub.id)}
+                aria-label={subDone ? "Mark subtask not done" : "Mark subtask done"}
+                aria-pressed={subDone}
+                onClick={() => sub.id != null && void toggleTodo(sub.id, date)}
                 className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 !min-h-0 !min-w-0"
-                style={{ borderColor: TASK_COLOR, backgroundColor: sub.done ? TASK_COLOR : "transparent" }}
+                style={{ borderColor: TASK_COLOR, backgroundColor: subDone ? TASK_COLOR : "transparent" }}
               >
-                {sub.done && <Check size={10} strokeWidth={4} color="#fff" />}
+                {subDone && <Check size={10} strokeWidth={4} color="#fff" />}
               </button>
               {editingId === sub.id ? (
                 <input
@@ -221,7 +239,7 @@ function SubtasksSection({
                     setEditText(sub.text);
                     setEditingId(sub.id ?? null);
                   }}
-                  className={["min-w-0 flex-1 truncate text-left text-[13px]", sub.done ? "text-muted line-through" : "text-ink"].join(" ")}
+                  className={["min-w-0 flex-1 truncate text-left text-[13px]", subDone ? "text-muted line-through" : "text-ink"].join(" ")}
                 >
                   {sub.text}
                 </button>
@@ -230,7 +248,8 @@ function SubtasksSection({
                 <X size={14} />
               </button>
             </li>
-          ))}
+            );
+          })}
         {parentId == null &&
           drafts.map((text, i) => (
             <li key={`${text}-${i}`} className="flex items-center gap-2 rounded-lg bg-surface-2 px-2 py-1.5">
@@ -268,7 +287,18 @@ function SubtasksSection({
   );
 }
 
-function ItemEditor({ state, onClose }: { state: EditorState | null; onClose: () => void }) {
+function ItemEditor({
+  state,
+  onClose,
+  defaultMode,
+  onCreated
+}: {
+  state: EditorState | null;
+  onClose: () => void;
+  /** What a brand-new item starts as — the type created last time. */
+  defaultMode: CalendarCreateMode;
+  onCreated: (mode: CalendarCreateMode) => void;
+}) {
   const confirm = useConfirm();
   const [mode, setMode] = useState<"event" | "task">("event");
   const [title, setTitle] = useState("");
@@ -292,7 +322,7 @@ function ItemEditor({ state, onClose }: { state: EditorState | null; onClose: ()
     setSubInput("");
     if (state.kind === "new") {
       const start = state.startTime ?? "09:00";
-      setMode("event");
+      setMode(defaultMode);
       setTitle("");
       setAllDay(state.startTime == null && false);
       setDate(state.date);
@@ -345,6 +375,7 @@ function ItemEditor({ state, onClose }: { state: EditorState | null; onClose: ()
         const pending = [...subDrafts, subInput.trim()].filter(Boolean);
         for (const text of pending) if (created.id != null) await createSubTodo(created.id, text);
       }
+      if (state.kind === "new") onCreated("task");
     } else {
       let end = endTime;
       if (!allDay && (timeToMin(end) ?? 0) <= (timeToMin(startTime) ?? 0)) {
@@ -362,6 +393,7 @@ function ItemEditor({ state, onClose }: { state: EditorState | null; onClose: ()
       };
       if (state.kind === "event" && state.event.id != null) await updateEvent(state.event.id, payload);
       else await createEvent(payload);
+      if (state.kind === "new") onCreated("event");
     }
     onClose();
   }
@@ -391,7 +423,7 @@ function ItemEditor({ state, onClose }: { state: EditorState | null; onClose: ()
 
   return (
     <Modal open onClose={onClose} title={editing ? "Edit" : "New"}>
-      <div className="flex flex-col gap-4 px-5 pb-4 pt-3">
+      <div className="cal-sheet flex flex-col gap-4 px-5 pb-4 pt-3">
         {!editing && (
           <div className="flex rounded-xl bg-surface-2 p-1" role="tablist">
             {(["event", "task"] as const).map((m) => (
@@ -416,7 +448,7 @@ function ItemEditor({ state, onClose }: { state: EditorState | null; onClose: ()
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={mode === "event" ? "Event title" : "Task"}
-          className="w-full border-b border-border bg-transparent pb-2 font-display text-[20px] font-semibold text-ink outline-none placeholder:text-muted/60"
+          className="w-full rounded-xl bg-surface-2 px-3.5 py-3 font-display text-[15px] font-semibold text-ink outline-none placeholder:text-muted/60"
         />
 
         {mode === "event" ? (
@@ -499,6 +531,8 @@ function ItemEditor({ state, onClose }: { state: EditorState | null; onClose: ()
             {canHaveSubtasks && (
               <SubtasksSection
                 parentId={state.kind === "task" ? state.todo.id : undefined}
+                parent={state.kind === "task" ? state.todo : undefined}
+                date={state.kind === "task" ? state.date : date}
                 drafts={subDrafts}
                 setDrafts={setSubDrafts}
                 input={subInput}
@@ -548,7 +582,8 @@ function ItemEditor({ state, onClose }: { state: EditorState | null; onClose: ()
 async function toggleFromCalendar(item: CalItem) {
   const id = item.todo?.id;
   if (id == null) return;
-  const next = await toggleTodo(id);
+  // Toggle for the day the item is shown on — so a forgotten past day can be ticked.
+  const next = await toggleTodo(id, item.date);
   if (next) playCheckSound();
   else playUncheckSound();
 }
@@ -687,6 +722,98 @@ function Agenda({
   /** Week/Day on a phone: the panel sits under the time grid, so cap its height and scroll inside it. */
   boxed?: boolean;
 }) {
+  // Which main tasks currently have their subtasks shown.
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  const toggleExpanded = (id: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // Subtasks that follow their parent are tucked under it instead of being
+  // listed as separate rows.
+  const { top, kids } = useMemo(() => {
+    const kids = new Map<number, CalItem[]>();
+    const top: CalItem[] = [];
+    for (const it of items) {
+      const parentId = it.todo?.parentId;
+      if (it.isSub && it.inherited && parentId != null) {
+        const list = kids.get(parentId) ?? [];
+        list.push(it);
+        kids.set(parentId, list);
+      } else {
+        top.push(it);
+      }
+    }
+    return { top, kids };
+  }, [items]);
+
+  function renderRow(it: CalItem, nested: boolean) {
+    const isTask = it.kind === "task" && it.todo?.id != null;
+    const children = isTask ? kids.get(it.todo!.id!) ?? [] : [];
+    const hasKids = children.length > 0;
+    const open = hasKids && expanded.has(it.todo!.id!);
+    const doneKids = children.filter((c) => c.done).length;
+
+    // One tap does the obvious thing: events open, a task with subtasks
+    // shows/hides them, any other task is checked off.
+    const onRowClick = () => {
+      if (!isTask) onOpenItem(it);
+      else if (hasKids) toggleExpanded(it.todo!.id!);
+      else void toggleFromCalendar(it);
+    };
+
+    return (
+      <li key={it.key}>
+        <div
+          className={["flex items-center gap-2.5 rounded-xl py-1.5 pr-1.5", nested ? "ml-6 pl-2.5" : "pl-3"].join(" ")}
+          style={{ backgroundColor: tint(it), borderLeft: `3px solid ${it.color}` }}
+        >
+          {isTask && <CheckDot item={it} size={20} />}
+          <button
+            onClick={onRowClick}
+            aria-expanded={hasKids ? open : undefined}
+            className="flex min-h-[36px] min-w-0 flex-1 items-center gap-2 text-left"
+          >
+            <span className="min-w-0 flex-1">
+              <span className={["block truncate text-[13.5px] font-medium text-ink", it.done ? "line-through opacity-50" : ""].join(" ")}>
+                {it.title}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] text-muted">
+                {it.allDay ? (nested ? "Subtask" : "All day") : `${formatTime12(minToTime(it.startMin!))} – ${formatTime12(minToTime(it.endMin ?? it.startMin! + 30))}`}
+                {it.recurring && <Repeat2 size={11} aria-label="Repeats" />}
+                {it.kind === "task" && !nested && <span>· {it.isSub && it.parentTitle ? `Subtask of ${it.parentTitle}` : "Task"}</span>}
+                {hasKids && (
+                  <span>
+                    · {doneKids}/{children.length} subtasks
+                  </span>
+                )}
+              </span>
+            </span>
+            {hasKids && (open ? <ChevronDown size={16} className="shrink-0 text-muted" /> : <ChevronRight size={16} className="shrink-0 text-muted" />)}
+          </button>
+          {isTask && (
+            <button
+              onClick={() => onOpenItem(it)}
+              aria-label={`Edit ${it.title}`}
+              title="Edit"
+              className="tap-target flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted active:bg-surface-2 active:text-ink !min-h-0 !min-w-0"
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+        </div>
+        {open && (
+          <ul className="mt-1 flex flex-col gap-1">
+            {children.map((c) => renderRow(c, true))}
+          </ul>
+        )}
+      </li>
+    );
+  }
+
   return (
     <section
       className={[
@@ -710,31 +837,10 @@ function Agenda({
         </button>
       </div>
       <div className={["scroll-area px-3 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-4", boxed ? "min-h-0 flex-1 overflow-y-auto pb-16" : "pb-20"].join(" ")}>
-        {items.length === 0 ? (
+        {top.length === 0 ? (
           <p className="px-1 py-6 text-center text-[13px] text-muted">Nothing planned.</p>
         ) : (
-          <ul className="flex flex-col gap-1.5">
-            {items.map((it) => (
-              <li key={it.key}>
-                <div
-                  className={["flex items-center gap-2.5 rounded-xl py-2 pr-3", it.isSub ? "ml-5 pl-2.5" : "pl-3"].join(" ")}
-                  style={{ backgroundColor: tint(it), borderLeft: `3px solid ${it.color}` }}
-                >
-                  {it.kind === "task" && it.todo?.id != null && <CheckDot item={it} size={20} />}
-                  <button onClick={() => onOpenItem(it)} className="min-w-0 flex-1 text-left">
-                    <p className={["truncate text-[13.5px] font-medium text-ink", it.done ? "line-through opacity-50" : ""].join(" ")}>
-                      {it.title}
-                    </p>
-                    <p className="flex items-center gap-1 text-[11px] text-muted">
-                      {it.allDay ? "All day" : `${formatTime12(minToTime(it.startMin!))} – ${formatTime12(minToTime(it.endMin ?? it.startMin! + 30))}`}
-                      {it.recurring && <Repeat2 size={11} aria-label="Repeats" />}
-                      {it.kind === "task" && <span>· {it.isSub && it.parentTitle ? `Subtask of ${it.parentTitle}` : "Task"}</span>}
-                    </p>
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <ul className="flex flex-col gap-1.5">{top.map((it) => renderRow(it, false))}</ul>
         )}
       </div>
     </section>
@@ -938,7 +1044,15 @@ function TimeGrid({
           ))}
         </div>
         {days.map((d, i) => {
-          const positioned = layoutTimed(perDay[i]);
+          // Subtasks that follow their parent sit inside the parent's block
+          // (same time), instead of as extra overlapping blocks.
+          const followers = (it: CalItem) => it.isSub && it.inherited;
+          const kidsByParent = new Map<number, CalItem[]>();
+          for (const it of perDay[i]) {
+            const pid = it.todo?.parentId;
+            if (followers(it) && pid != null) kidsByParent.set(pid, [...(kidsByParent.get(pid) ?? []), it]);
+          }
+          const positioned = layoutTimed(perDay[i].filter((it) => !followers(it)));
           return (
             <div
               key={d}
@@ -959,6 +1073,8 @@ function TimeGrid({
                 const start = item.startMin!;
                 const end = item.endMin ?? start + 30;
                 const height = Math.max(20, ((end - start) / 60) * HOUR_H - 2);
+                const kids = item.todo?.id != null ? kidsByParent.get(item.todo.id) ?? [] : [];
+                const shownKids = Math.max(0, Math.min(kids.length, Math.floor((height - 34) / 12)));
                 return (
                   <div
                     key={item.key}
@@ -992,6 +1108,20 @@ function TimeGrid({
                       {height > 32 && (
                         <span className="block truncate text-[9.5px] font-normal text-muted">
                           {formatTime12(minToTime(start))} – {formatTime12(minToTime(end))}
+                        </span>
+                      )}
+                      {kids.length > 0 && height > 32 && (
+                        <span className="block text-[9.5px] font-normal text-muted">
+                          {kids.slice(0, shownKids).map((k) => (
+                            <span key={k.key} className={["block truncate", k.done ? "line-through opacity-60" : ""].join(" ")}>
+                              ↳ {k.title}
+                            </span>
+                          ))}
+                          {kids.length > shownKids && (
+                            <span className="block truncate">
+                              ↳ {kids.filter((k) => k.done).length}/{kids.length} subtasks
+                            </span>
+                          )}
                         </span>
                       )}
                     </button>
@@ -1031,12 +1161,31 @@ export function CalendarView() {
   const [showEvents, setShowEvents] = useState(true);
   const [showTasks, setShowTasks] = useState(true);
   const [showAgenda, setShowAgenda] = useState(true);
+  const [createMode, setCreateMode] = useState<CalendarCreateMode>("event");
   const [editor, setEditor] = useState<EditorState | null>(null);
 
   // Remember whether the day panel was hidden.
   useEffect(() => {
     void getShowCalendarAgenda().then(setShowAgenda);
+    // Restore the last Events/Tasks filter and the last type you created.
+    void getCalendarFilters().then((f) => {
+      setShowEvents(f.events);
+      setShowTasks(f.tasks);
+    });
+    void getCalendarCreateMode().then(setCreateMode);
+    void getCalendarView().then(setView);
   }, []);
+
+  function changeFilter(next: { events: boolean; tasks: boolean }) {
+    setShowEvents(next.events);
+    setShowTasks(next.tasks);
+    void setCalendarFilters(next);
+  }
+
+  function rememberCreateMode(mode: CalendarCreateMode) {
+    setCreateMode(mode);
+    void setCalendarCreateMode(mode);
+  }
 
   function toggleAgenda() {
     const next = !showAgenda;
@@ -1121,6 +1270,7 @@ export function CalendarView() {
                 onClick={() => {
                   setView(v);
                   setCursor(selected);
+                  void setCalendarView(v);
                 }}
                 className={[
                   "tap-target rounded-[10px] px-3 py-1 text-[12px] font-semibold capitalize transition-colors",
@@ -1133,8 +1283,8 @@ export function CalendarView() {
           </div>
           <div className="flex items-center gap-1.5">
             {[
-              { label: "Events", on: showEvents, toggle: () => setShowEvents((v) => !v) },
-              { label: "Tasks", on: showTasks, toggle: () => setShowTasks((v) => !v) }
+              { label: "Events", on: showEvents, toggle: () => changeFilter({ events: !showEvents, tasks: showTasks }) },
+              { label: "Tasks", on: showTasks, toggle: () => changeFilter({ events: showEvents, tasks: !showTasks }) }
             ].map(({ label, on, toggle }) => (
               <button
                 key={label}
@@ -1207,7 +1357,7 @@ export function CalendarView() {
         <Plus size={24} strokeWidth={2.6} />
       </button>
 
-      <ItemEditor state={editor} onClose={() => setEditor(null)} />
+      <ItemEditor state={editor} onClose={() => setEditor(null)} defaultMode={createMode} onCreated={rememberCreateMode} />
     </div>
   );
 }

@@ -21,11 +21,11 @@ export interface CalItem {
   recurring?: boolean;
   /** True for a subtask; `parentTitle` names the main to-do it belongs to. */
   isSub?: boolean;
+  /** A subtask that follows its parent's schedule (has no date of its own). */
+  inherited?: boolean;
   parentTitle?: string;
   /** Stable ordering key so a subtask sorts right under its parent. */
   group?: number;
-  /** Sort position for inherited subtasks: their parent's start, so they list right under it. */
-  sortMin?: number;
   event?: CalEvent;
   todo?: Todo;
 }
@@ -49,8 +49,26 @@ export function formatTime12(t: string): string {
   return m === 0 ? `${hh} ${suffix}` : `${hh}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
-function localDayOf(timestamp: number): string {
+export function localDayOf(timestamp: number): string {
   return toDateStr(new Date(timestamp));
+}
+
+/** A to-do repeats if its own schedule (or, for a subtask that follows its
+ *  parent, the parent's) is anything other than "once". */
+export function isRecurringTodo(source: Todo): boolean {
+  return (source.frequency ?? "once") !== "once";
+}
+
+/** Is this to-do checked off *on that day*? A one-off task is simply done or
+ *  not. A repeating task is done per day: it counts only on the days listed in
+ *  `completedDates` (or, for tasks saved before that existed, the single day in
+ *  `completedAt`), and is open again on every other day — which is what makes
+ *  repeating tasks come back daily. `source` is the item whose schedule applies
+ *  (the parent, for a subtask that follows it). */
+export function isDoneOn(todo: Todo, dateStr: string, source: Todo = todo): boolean {
+  if (!isRecurringTodo(source)) return todo.done;
+  if (todo.completedDates?.includes(dateStr)) return true;
+  return todo.done && todo.completedAt != null && localDayOf(todo.completedAt) === dateStr;
 }
 
 /** Does this to-do land on `dateStr`? One-off tasks use their due date;
@@ -135,10 +153,11 @@ export function itemsForDate(
       if (!todoOccursOn(source, dateStr)) continue;
 
       const freq = source.frequency ?? "once";
-      // Inherited subtasks stay untimed so they don't pile on top of the
-      // parent's time block; they list beneath it as all-day items.
-      const start = ownSchedule ? timeToMin(t.dueTime) : undefined;
-      const rawEnd = start != null ? timeToMin(t.dueEndTime) : undefined;
+      // A subtask with no schedule of its own follows its parent exactly —
+      // same day, same time — rather than falling into "all day".
+      const timeSrc = ownSchedule ? t : parent!;
+      const start = timeToMin(timeSrc.dueTime);
+      const rawEnd = start != null ? timeToMin(timeSrc.dueEndTime) : undefined;
       const end = start == null ? undefined : rawEnd != null && rawEnd > start ? rawEnd : Math.min(start + 30, 24 * 60);
       out.push({
         key: `t${t.id}-${dateStr}`,
@@ -149,23 +168,21 @@ export function itemsForDate(
         startMin: start,
         endMin: end,
         color: t.color ?? parent?.color ?? opts.taskColor,
-        // A repeating task has a single done flag, so it only reads as
-        // "done" on the day it was completed.
-        done: freq === "once" ? t.done : t.done && t.completedAt != null && localDayOf(t.completedAt) === dateStr,
+        done: isDoneOn(t, dateStr, source),
         recurring: freq !== "once",
         isSub: !!parent,
+        inherited: !ownSchedule,
         parentTitle: parent?.text,
         group: parent?.id ?? t.id,
-        sortMin: !ownSchedule ? timeToMin(parent!.dueTime) : undefined,
         todo: t
       });
     }
   }
 
   return out.sort((a, b) => {
-    const am = a.sortMin ?? a.startMin;
-    const bm = b.sortMin ?? b.startMin;
-    // Untimed things first, then by time (a subtask sorts at its parent's time).
+    const am = a.startMin;
+    const bm = b.startMin;
+    // Untimed things first, then by time (a subtask shares its parent's time, so it sorts right after it).
     if ((am == null) !== (bm == null)) return am == null ? -1 : 1;
     if ((am ?? 0) !== (bm ?? 0)) return (am ?? 0) - (bm ?? 0);
     if (a.kind !== b.kind) return a.kind === "event" ? -1 : 1;

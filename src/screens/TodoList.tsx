@@ -10,6 +10,7 @@ import { getShowCompletedTodos, setShowCompletedTodos } from "../services/settin
 import type { Todo, TodoCustomRepeat, TodoCustomRepeatUnit } from "../types/todo";
 import { fireCompletionCelebration } from "../utils/completionCelebration";
 import { Modal } from "../components/ui/Modal";
+import { isDoneOn, isRecurringTodo, todoOccursOn } from "../utils/calendar";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 
 // Tasks-screen accent — follows the active app theme (same brand color used
@@ -25,11 +26,11 @@ function localDayKey(timestamp = Date.now()): string {
 
 
 function taskStreak(todos: Todo[], todayKey: string): number {
-  const completedDays = new Set(
-    todos
-      .filter((t) => t.done && t.completedAt)
-      .map((t) => localDayKey(t.completedAt))
-  );
+  const completedDays = new Set<string>();
+  for (const t of todos) {
+    if (t.done && t.completedAt) completedDays.add(localDayKey(t.completedAt));
+    for (const d of t.completedDates ?? []) completedDays.add(d);
+  }
 
   if (!completedDays.has(todayKey)) return 0;
 
@@ -551,7 +552,10 @@ function TodoRow({ todo, todayKey }: { todo: Todo; todayKey: string }) {
   const [burstKey, setBurstKey] = useState(0);
   const subTodos = useSubTodos(todo.id);
   const [subsOpen, setSubsOpen] = useState(false);
-  const visibleSubTodos = subTodos.filter((s) => !s.done || localDayKey(s.completedAt ?? 0) === todayKey);
+  // A repeating task's subtasks reset with it each day (see isDoneOn).
+  const parentRepeats = isRecurringTodo(todo);
+  const daySubs = subTodos.map((s) => (parentRepeats && !s.dueDate ? { ...s, done: isDoneOn(s, todayKey, todo) } : s));
+  const visibleSubTodos = daySubs.filter((s) => !s.done || localDayKey(s.completedAt ?? 0) === todayKey);
   const doneSteps = visibleSubTodos.filter((s) => s.done).length;
   const hasSubs = visibleSubTodos.length > 0;
   const subProgress = hasSubs ? Math.round((doneSteps / visibleSubTodos.length) * 100) : 0;
@@ -829,10 +833,14 @@ export function TodoList() {
 
   // Tasks are daily. Incomplete tasks can remain visible until finished,
   // but completed tasks belong only to the day they were completed.
-  const completedToday = todos.filter(
+  //
+  // Repeating tasks come back every day they're scheduled: they're open again
+  // each morning, and only listed on the days they actually occur.
+  const dayTodos = todos.map((t) => (isRecurringTodo(t) ? { ...t, done: isDoneOn(t, todayKey) } : t));
+  const completedToday = dayTodos.filter(
     (t) => t.done && localDayKey(t.completedAt ?? 0) === todayKey
   );
-  const pending = todos.filter((t) => !t.done);
+  const pending = dayTodos.filter((t) => !t.done && (!isRecurringTodo(t) || todoOccursOn(t, todayKey)));
   const done = completedToday;
   const visibleTodayCount = pending.length + completedToday.length;
 

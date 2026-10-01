@@ -17,6 +17,10 @@ export interface Todo {
   icon: string;
   createdAt: number;
   completedAt?: number;
+  /** Days (local YYYY-MM-DD) a *repeating* task was checked off. A repeating
+   *  task has one record but many occurrences, so each day is tracked here —
+   *  that is what lets you tick off several missed days, not just the latest. */
+  completedDates?: string[];
   /** Optional recurrence for the task. */
   frequency?: TodoFrequency;
   /** Optional custom recurrence settings. */

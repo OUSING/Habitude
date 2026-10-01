@@ -1,5 +1,7 @@
 import { db } from "./db";
 import type { NewTodo, Todo } from "../types/todo";
+import { isDoneOn, isRecurringTodo, localDayOf } from "../utils/calendar";
+import { toDateStr } from "../utils/date";
 
 /** Top-level to-dos only — subtasks are fetched via listSubTodos/useSubTodos
  *  and rendered nested under their parent to-do. */
@@ -37,11 +39,40 @@ export async function updateTodo(id: number, changes: Partial<Pick<Todo, "text" 
   await db.todos.update(id, changes);
 }
 
-export async function toggleTodo(id: number): Promise<boolean> {
+/** Checks/unchecks a to-do for one day and returns the new state. Pass
+ *  `dateStr` to act on a day other than today — the calendar does this, so a
+ *  forgotten day can still be ticked off. A one-off task just flips done. A
+ *  repeating task adds/removes that day in `completedDates`, so each missed
+ *  day is independent and checking today never leaves it "done" tomorrow. */
+export async function toggleTodo(id: number, dateStr?: string): Promise<boolean> {
   const existing = await db.todos.get(id);
   if (!existing) return false;
-  const next = !existing.done;
-  await db.todos.update(id, { done: next, completedAt: next ? Date.now() : undefined });
+  // A subtask with no schedule of its own follows its parent's.
+  const parent = existing.parentId != null && !existing.dueDate ? await db.todos.get(existing.parentId) : undefined;
+  const source = parent ?? existing;
+  const today = toDateStr(new Date());
+  const day = dateStr ?? today;
+  const next = !isDoneOn(existing, day, source);
+
+  if (!isRecurringTodo(source)) {
+    await db.todos.update(id, { done: next, completedAt: next ? Date.now() : undefined });
+    return next;
+  }
+
+  const dates = new Set(existing.completedDates ?? []);
+  // Carry over a completion recorded the old way (single flag) so it isn't lost.
+  if (existing.done && existing.completedAt != null) dates.add(localDayOf(existing.completedAt));
+  if (next) dates.add(day);
+  else dates.delete(day);
+
+  // `done` / `completedAt` keep describing *today*, for anything reading them directly.
+  const doneToday = dates.has(today);
+  const keepStamp = existing.completedAt != null && localDayOf(existing.completedAt) === today;
+  await db.todos.update(id, {
+    completedDates: [...dates].sort(),
+    done: doneToday,
+    completedAt: doneToday ? (keepStamp ? existing.completedAt : Date.now()) : undefined
+  });
   return next;
 }
 
@@ -54,6 +85,13 @@ export async function deleteTodo(id: number): Promise<void> {
 
 export async function clearCompletedTodos(): Promise<void> {
   const all = await db.todos.toArray();
-  const doneIds = all.filter((t) => t.done).map((t) => t.id!);
+  const byId = new Map(all.map((t) => [t.id!, t]));
+  // Repeating tasks (and subtasks following one) are "done" only for a day —
+  // they come back tomorrow, so clearing completed items must leave them alone.
+  const repeats = (t: Todo) => {
+    const parent = t.parentId != null && !t.dueDate ? byId.get(t.parentId) : undefined;
+    return isRecurringTodo(parent ?? t);
+  };
+  const doneIds = all.filter((t) => t.done && !repeats(t)).map((t) => t.id!);
   await db.todos.bulkDelete(doneIds);
 }

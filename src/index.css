@@ -2458,6 +2458,20 @@ h1, h2, h3, .font-display {
   border-radius: 6px;
 }
 
+/* Calendar "New / Edit" sheet: text fields get no colored outline when
+   focused (the global ring above would otherwise draw a bright border
+   around the title as soon as the sheet opens). Buttons keep their ring
+   for keyboard users. */
+.cal-sheet input,
+.cal-sheet input:focus,
+.cal-sheet input:focus-visible,
+.cal-sheet textarea,
+.cal-sheet textarea:focus,
+.cal-sheet textarea:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Interactive elements get a quiet, consistent transition by default so
    theme switches, hovers and presses settle instead of snapping — this is
    additive and yields to any more specific `transition` already set. */
